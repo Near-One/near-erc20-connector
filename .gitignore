@@ -1,0 +1,10 @@
+.idea/
+node_modules/
+artifacts/
+cache/
+coverage/
+coverage.json
+.env
+.env.prod
+app.yaml
+.DS_Store
