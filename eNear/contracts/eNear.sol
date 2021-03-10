@@ -35,14 +35,14 @@ contract eNear is ERC20, Bridge, AdminControlled {
     constructor(
         string memory _tokenName,
         string memory _tokenSymbol,
-        bytes memory nearTokenFactory,
-        INearProver prover,
+        bytes memory _nearTokenFactory,
+        INearProver _prover,
         address _admin,
-        uint pausedFlags
+        uint _pausedFlags
     )
     ERC20(_tokenName, _tokenSymbol)
-    Bridge(nearTokenFactory, prover)
-    AdminControlled(_admin, pausedFlags)
+    Bridge(_nearTokenFactory, _prover)
+    AdminControlled(_admin, _pausedFlags)
     public
     {
         // set decimals to 24 to mirror yocto Near

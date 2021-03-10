@@ -8,10 +8,10 @@ const {
   shouldBehaveLikeERC20Approve,
 } = require('./ERC20.behavior');
 
-const ERC20Mock = artifacts.require('eNear');
+const ERC20Mock = artifacts.require('eNearMock');
 
 contract('eNear ERC20 behaviour', function (accounts) {
-  const [ initialHolder, recipient, anotherAccount, minter ] = accounts;
+  const [ initialHolder, recipient, anotherAccount, minter, prover, admin ] = accounts;
 
   const name = 'eNear';
   const symbol = 'eNear';
@@ -19,7 +19,14 @@ contract('eNear ERC20 behaviour', function (accounts) {
   const initialSupply = new BN(100);
 
   beforeEach(async function () {
-    this.token = await ERC20Mock.new(name, symbol, minter);
+    this.token = await ERC20Mock.new(
+      name,
+      symbol,
+      Buffer.from('factory', 'utf-8'),
+      prover,
+      admin,
+      0
+    );
 
     await this.token.mintTo(initialHolder, initialSupply, {from: minter})
   });
