@@ -1,32 +1,71 @@
-pragma solidity 0.7.6;
+// SPDX-License-Identifier: MIT
 
+pragma solidity 0.6.12;
+
+import "rainbow-bridge/contracts/eth/nearbridge/contracts/AdminControlled.sol";
+import "rainbow-bridge/contracts/eth/nearprover/contracts/ProofDecoder.sol";
+import "rainbow-bridge/contracts/eth/nearbridge/contracts/Borsh.sol";
+import "rainbow-bridge/contracts/eth/nearbridge/contracts/AdminControlled.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { Bridge, INearProver } from "./Bridge.sol";
 
-contract eNear is ERC20 {
+contract eNear is ERC20, Bridge, AdminControlled {
 
-    address public minterAndBurner;
+    uint constant UNPAUSED_ALL = 0;
+    uint constant PAUSED_FINALISE_FROM_NEAR = 1 << 0;
+    uint constant PAUSED_XFER_TO_NEAR = 1 << 1;
+
+    struct BridgeResult {
+        uint128 amount;
+        address token;
+        address recipient;
+    }
 
     constructor(
         string memory _tokenName,
         string memory _tokenSymbol,
-        address _minterAndBurner
-    ) ERC20(_tokenName, _tokenSymbol) {
-        require(_minterAndBurner != address(0), "Minter is invalid");
-        minterAndBurner = _minterAndBurner;
-
+        bytes memory nearTokenFactory,
+        INearProver prover,
+        address _admin,
+        uint pausedFlags
+    )
+    ERC20(_tokenName, _tokenSymbol)
+    Bridge(nearTokenFactory, prover)
+    AdminControlled(_admin, pausedFlags)
+    public
+    {
         // set decimals to 24 to mirror yocto Near
         _setupDecimals(24);
     }
 
-    // As Near max supply is 1,000,000,000 x 10 ^ 24, uint256 will be able to handle
-    function mintTo(address _recipient, uint256 _amount) external {
-        require(msg.sender == minterAndBurner, "mint: Only minter");
-        require(_amount > 0, "mint: Invalid amount specified");
-        _mint(_recipient, _amount);
+    function finaliseNearToEthTransfer(bytes memory proofData, uint64 proofBlockHeight)
+    external pausable (PAUSED_FINALISE_FROM_NEAR) {
+        ProofDecoder.ExecutionStatus memory status = _parseAndConsumeProof(proofData, proofBlockHeight);
+        BridgeResult memory result = _decodeBridgeResult(status.successValue);
+
+        _mint(result.recipient, result.amount);
+
+        //todo emit an event
     }
 
-    // for the sender to burn their own tokens
-    function burn(uint256 _amount) external {
+    function transferToNear(uint256 _amount, string calldata _nearReceiverAccountId)
+    external pausable (PAUSED_XFER_TO_NEAR) {
         _burn(msg.sender, _amount);
+
+        //todo emit an event
+    }
+
+    function _decodeBridgeResult(bytes memory data) internal view returns(BridgeResult memory result) {
+        Borsh.Data memory borshData = Borsh.from(data);
+        uint8 flag = borshData.decodeU8();
+        require(flag == 0, "ERR_NOT_WITHDRAW_RESULT");
+        result.amount = borshData.decodeU128();
+        bytes20 token = borshData.decodeBytes20();
+        result.token = address(uint160(token));
+
+        require(result.token == address(this), "Invalid transfer");
+
+        bytes20 recipient = borshData.decodeBytes20();
+        result.recipient = address(uint160(recipient));
     }
 }
