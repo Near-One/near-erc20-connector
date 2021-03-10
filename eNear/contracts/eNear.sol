@@ -15,6 +15,17 @@ contract eNear is ERC20, Bridge, AdminControlled {
     uint constant PAUSED_FINALISE_FROM_NEAR = 1 << 0;
     uint constant PAUSED_XFER_TO_NEAR = 1 << 1;
 
+    event TransferToNearInitiated (
+        address indexed sender,
+        uint256 amount,
+        string accountId
+    );
+
+    event NearToEthTransferFinalised (
+        uint128 amount,
+        address recipient
+    );
+
     struct BridgeResult {
         uint128 amount;
         address token;
@@ -45,14 +56,13 @@ contract eNear is ERC20, Bridge, AdminControlled {
 
         _mint(result.recipient, result.amount);
 
-        //todo emit an event
+        emit NearToEthTransferFinalised(result.amount, result.recipient);
     }
 
     function transferToNear(uint256 _amount, string calldata _nearReceiverAccountId)
     external pausable (PAUSED_XFER_TO_NEAR) {
-        _burn(msg.sender, _amount);
-
-        //todo emit an event
+        _burn(_msgSender(), _amount);
+        emit TransferToNearInitiated(_msgSender(), _amount, _nearReceiverAccountId);
     }
 
     function _decodeBridgeResult(bytes memory data) internal view returns(BridgeResult memory result) {
