@@ -17,6 +17,8 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
     string nameOverride;
     string symbolOverride;
 
+    uint256 initVersion;
+
     event TransferToNearInitiated (
         address indexed sender,
         uint256 amount,
@@ -42,6 +44,8 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
         address _admin,
         uint _pausedFlags
     ) public {
+        require(version().sub(1) == initVersion, "Can only call init() once per version");
+
         nameOverride = _tokenName;
         symbolOverride = _tokenSymbol;
 
@@ -55,6 +59,8 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
 
         // Add the possibility to set pause flags on the initialization
         paused = _pausedFlags;
+
+        initVersion = version();
     }
 
     function name() public view override returns (string memory) {
@@ -84,6 +90,10 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
     external pausable (PAUSED_XFER_TO_NEAR) {
         _burn(_msgSender(), _amount);
         emit TransferToNearInitiated(_msgSender(), _amount, _nearReceiverAccountId);
+    }
+
+    function version() virtual internal pure returns (uint256) {
+        return 1;
     }
 
     function _decodeBridgeResult(bytes memory data) internal view returns(BridgeResult memory result) {
