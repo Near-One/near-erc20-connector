@@ -2,18 +2,20 @@
 
 pragma solidity 0.6.12;
 
-import "rainbow-bridge/contracts/eth/nearbridge/contracts/AdminControlled.sol";
 import "rainbow-bridge/contracts/eth/nearprover/contracts/ProofDecoder.sol";
 import "rainbow-bridge/contracts/eth/nearbridge/contracts/Borsh.sol";
-import "rainbow-bridge/contracts/eth/nearbridge/contracts/AdminControlled.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Bridge, INearProver } from "./Bridge.sol";
+import { AdminControlled } from "./AdminControlled.sol";
 
-contract eNear is ERC20, Bridge, AdminControlled {
+contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
 
     uint constant UNPAUSED_ALL = 0;
     uint constant PAUSED_FINALISE_FROM_NEAR = 1 << 0;
     uint constant PAUSED_XFER_TO_NEAR = 1 << 1;
+
+    string nameOverride;
+    string symbolOverride;
 
     event TransferToNearInitiated (
         address indexed sender,
@@ -32,21 +34,40 @@ contract eNear is ERC20, Bridge, AdminControlled {
         address recipient;
     }
 
-    constructor(
+    function init(
         string memory _tokenName,
         string memory _tokenSymbol,
         bytes memory _nearTokenFactory,
         INearProver _prover,
         address _admin,
         uint _pausedFlags
-    )
-    ERC20(_tokenName, _tokenSymbol)
-    Bridge(_nearTokenFactory, _prover)
-    AdminControlled(_admin, _pausedFlags)
-    public
-    {
+    ) public {
+        nameOverride = _tokenName;
+        symbolOverride = _tokenSymbol;
+
+        require(_nearTokenFactory.length > 0, "Invalid Near Token Factory address");
+        require(address(_prover) != address(0), "Invalid Near prover address");
+
+        nearTokenFactory_ = _nearTokenFactory;
+        prover_ = _prover;
+
+        admin = _admin;
+
+        // Add the possibility to set pause flags on the initialization
+        paused = _pausedFlags;
+    }
+
+    function name() public view override returns (string memory) {
+        return nameOverride;
+    }
+
+    function symbol() public view override returns (string memory) {
+        return symbolOverride;
+    }
+
+    function decimals() public view override returns (uint8) {
         // set decimals to 24 to mirror yocto Near
-        _setupDecimals(24);
+        return 24;
     }
 
     function finaliseNearToEthTransfer(bytes memory proofData, uint64 proofBlockHeight)

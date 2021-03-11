@@ -16,14 +16,6 @@ contract Bridge {
     // OutcomeReciptId -> Used
     mapping(bytes32 => bool) public usedProofs_;
 
-    constructor(bytes memory nearTokenFactory, INearProver prover) public {
-        require(nearTokenFactory.length > 0, "Invalid Near Token Factory address");
-        require(address(prover) != address(0), "Invalid Near prover address");
-
-        nearTokenFactory_ = nearTokenFactory;
-        prover_ = prover;
-    }
-
     /// Parses the provided proof and consumes it if it's not already used.
     /// The consumed event cannot be reused for future calls.
     function _parseAndConsumeProof(bytes memory proofData, uint64 proofBlockHeight)
