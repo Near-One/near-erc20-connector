@@ -19,6 +19,7 @@
     "chai": "^4.2.0",
     "dotenv": "^8.2.0",
     "ethereum-waffle": "^3.2.1",
+    "ethers": "^5.0.32",
     "hardhat": "^2.0.8",
     "hardhat-gas-reporter": "^1.0.4",
     "prompt-sync": "^4.2.0",
