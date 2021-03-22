@@ -15,67 +15,51 @@ const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
 /// Contains balance and allowances information for one account.
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Account {
-    /// Current account balance.
-    pub balance: Balance,
-
+    pub total_locked: Balance,
 }
 
 impl Account {
-    /// Initializes a new Account with 0 balance for a given `account_hash`.
     pub fn new() -> Self {
-        Self { balance: 0 }
+        Self { total_locked: 0 }
     }
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct FungibleToken {
+pub struct NearBridge {
     /// sha256(AccountID) -> Account details.
     pub accounts: LookupMap<Vec<u8>, Account>,
 
-    /// Total supply of the all token.
-    pub total_supply: Balance,
+    /// Total near locked in contract
+    pub total_locked: Balance,
 }
 
-impl Default for FungibleToken {
+impl Default for NearBridge {
     fn default() -> Self {
         env::panic(b"Contract should be initialized before usage.")
     }
 }
 
 #[near_bindgen]
-impl FungibleToken {
+impl NearBridge {
     #[init]
     pub fn new() -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
             accounts: LookupMap::new(b"a".to_vec()),
-            total_supply: 0u128
+            total_locked: 0u128
         }
     }
 
-    /// Deposit NEAR and send wNear tokens to the predecessor account
+    /// Deposit NEAR for bridging from the predecessor account ID
     /// Requirements:
+    /// * `receiver_id` must be a valid account ID
     /// * `amount` must be a positive integer
     /// * Caller of the method has to attach deposit enough to cover:
-    ///   * The `amount` of wNear tokens being minted, and
+    ///   * The `amount` of Near tokens being bridged, and
     ///   * The storage difference at the fixed storage price defined in the contract.
     #[payable]
-    pub fn deposit(&mut self, amount: U128) {
-        // Proxy through to deposit_to() making the receiver_id the predecessor
-        self.deposit_to(env::predecessor_account_id(), amount);
-    }
-
-    /// Deposit NEAR from the predecessor account and send wNear to a specific receiver_id
-    /// Requirements:
-    /// * `receiver_id` cannot be this contract
-    /// * `receiver_id` must be a valid account Id
-    /// * `amount` must be a positive integer
-    /// * Caller of the method has to attach deposit enough to cover:
-    ///   * The `amount` of wNear tokens being minted, and
-    ///   * The storage difference at the fixed storage price defined in the contract.
-    #[payable]
-    pub fn deposit_to(&mut self, receiver_id: AccountId, amount: U128) {
+    pub fn deposit(&mut self, receiver_id: AccountId, amount: U128) {
         let initial_storage = env::storage_usage();
 
         // As attached deposit includes tokens for storage, deposit amount needs to be explicit
@@ -95,14 +79,14 @@ impl FungibleToken {
         );
 
         // Mint to receiver_id
-        self.mint(&receiver_id, amount.clone());
+        //self.mint(&receiver_id, amount.clone());
 
         // Check we have enough attached deposit
         let current_storage = env::storage_usage();
         let attached_deposit = env::attached_deposit();
         let required_deposit_for_tokens_and_storage = if current_storage > initial_storage {
             (Balance::from(current_storage - initial_storage) * STORAGE_PRICE_PER_BYTE)
-            + amount
+                + amount
         } else {
             amount
         };
@@ -114,7 +98,7 @@ impl FungibleToken {
             attached_deposit,
         );
 
-        env::log(format!("{} wNear tokens minted", amount).as_bytes());
+        env::log(format!("{} Near tokens locked", amount).as_bytes());
 
         // Send back any money that is sent over value for required_deposit_for_tokens_and_storage
         let refund_amount = if attached_deposit > required_deposit_for_tokens_and_storage {
@@ -129,239 +113,6 @@ impl FungibleToken {
         }
     }
 
-    /// Unwrap wNear and send Near back to the predecessor account
-    /// Requirements:
-    /// * `amount` must be a positive integer
-    /// * Caller must have a balance that is greater than or equal to `amount`
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn withdraw(&mut self, amount: U128) {
-        // Proxy through to withdraw_to() sending the Near to the predecessor account
-        self.withdraw_to(env::predecessor_account_id(), amount);
-    }
-
-    /// Unwraps wNear from the predecessor account and sends the Near to a specific receiver_id
-    /// Requirements:
-    /// * `receiver_id` cannot be this contract
-    /// * `receiver_id` must be a valid account Id
-    /// * `amount` should be a positive integer
-    /// * Caller must have a balance that is greater than or equal to `amount`.
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn withdraw_to(&mut self, receiver_id: AccountId, amount: U128) {
-        let initial_storage = env::storage_usage();
-
-        let amount: Balance = amount.into();
-        if amount == 0 {
-            env::panic(b"Withdrawal amount must be greater than zero");
-        }
-
-        assert!(
-            env::is_valid_account_id(receiver_id.as_bytes()),
-            "New owner's account ID is invalid"
-        );
-
-        assert_ne!(
-            receiver_id, env::current_account_id(),
-            "Invalid transfer to this contract"
-        );
-
-        // Decrease the predecessor's wNear balance and reduce total supply
-        self.burn(&env::predecessor_account_id(), amount.clone());
-
-        // Send near `amount` to receiver_id
-        env::log(format!("Withdrawal of {} wNear", amount).as_bytes());
-        Promise::new(receiver_id).transfer(amount);
-
-        self.refund_storage(initial_storage);
-    }
-
-    /// The withdraw_from function allows to unwrap wNear from an owner wallet to a receiver_id wallet
-    /// Requirements:
-    /// * `receiver_id` of the Near tokens cannot be this contract
-    /// * `receiver_id` must be a valid account Id
-    /// * `receiver_id` cannot be the same as `owner_id`. Use `withdraw()` in that scenario.
-    /// * `amount` should be a positive integer.
-    /// * `owner_id` should have balance on the account greater or equal than the withdraw `amount`.
-    /// * If this function is called by an escrow account (`owner_id != predecessor_account_id`),
-    ///   then the allowance of the caller of the function (`predecessor_account_id`) on
-    ///   the account of `owner_id` should be greater or equal than the transfer `amount`.
-    /// * Alternatively, if they have infinite approval, their approval amount wont be reduced.
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn withdraw_from(&mut self, owner_id: AccountId, receiver_id: AccountId, amount: U128) {
-        let initial_storage = env::storage_usage();
-
-        let amount: Balance = amount.into();
-        if amount == 0 {
-            env::panic(b"Withdrawal amount must be greater than zero");
-        }
-
-        assert!(
-            env::is_valid_account_id(receiver_id.as_bytes()),
-            "New owner's account ID is invalid"
-        );
-
-        assert_ne!(
-            receiver_id, env::current_account_id(),
-            "Invalid transfer to this contract"
-        );
-
-        assert_ne!(
-            owner_id, receiver_id,
-            "The new owner should be different from the current owner"
-        );
-
-        // If transferring by allowance, need to check and update allowance.
-        let escrow_account_id = env::predecessor_account_id();
-        if escrow_account_id != owner_id {
-            let mut account = self.get_account(&owner_id);
-            let allowance = account.get_allowance(&escrow_account_id);
-            if allowance != std::u128::MAX {
-                if allowance < amount {
-                    env::panic(b"Not enough allowance");
-                }
-                account.set_allowance(&escrow_account_id, allowance - amount);
-            }
-        }
-
-
-        self.burn(&owner_id, amount.clone());
-
-        // Send near `amount` to receiver_id
-        env::log(format!("Withdrawal of {} wNear", amount).as_bytes());
-        Promise::new(receiver_id).transfer(amount);
-
-        self.refund_storage(initial_storage);
-    }
-
-    /// Increments the `allowance` for `escrow_account_id` by `amount` on the account of the caller of this contract
-    /// (`predecessor_id`) who is the balance owner.
-    /// Requirements:
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn inc_allowance(&mut self, escrow_account_id: AccountId, amount: U128) {
-        let initial_storage = env::storage_usage();
-        assert!(
-            env::is_valid_account_id(escrow_account_id.as_bytes()),
-            "Escrow account ID is invalid"
-        );
-        let owner_id = env::predecessor_account_id();
-        if escrow_account_id == owner_id {
-            env::panic(b"Can not increment allowance for yourself");
-        }
-        let mut account = self.get_account(&owner_id);
-        let current_allowance = account.get_allowance(&escrow_account_id);
-        account.set_allowance(&escrow_account_id, current_allowance.saturating_add(amount.0));
-        self.set_account(&owner_id, &account);
-        self.refund_storage(initial_storage);
-    }
-
-    /// Decrements the `allowance` for `escrow_account_id` by `amount` on the account of the caller of this contract
-    /// (`predecessor_id`) who is the balance owner.
-    /// Requirements:
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn dec_allowance(&mut self, escrow_account_id: AccountId, amount: U128) {
-        let initial_storage = env::storage_usage();
-        assert!(
-            env::is_valid_account_id(escrow_account_id.as_bytes()),
-            "Escrow account ID is invalid"
-        );
-        let owner_id = env::predecessor_account_id();
-        if escrow_account_id == owner_id {
-            env::panic(b"Can not decrement allowance for yourself");
-        }
-        let mut account = self.get_account(&owner_id);
-        let current_allowance = account.get_allowance(&escrow_account_id);
-        account.set_allowance(&escrow_account_id, current_allowance.saturating_sub(amount.0));
-        self.set_account(&owner_id, &account);
-        self.refund_storage(initial_storage);
-    }
-
-    /// Transfers the `amount` of tokens from `owner_id` to the `new_owner_id`.
-    /// Requirements:
-    /// * Recipient of the wNear tokens cannot be this contract
-    /// * `amount` should be a positive integer.
-    /// * `owner_id` should have balance on the account greater or equal than the transfer `amount`.
-    /// * If this function is called by an escrow account (`owner_id != predecessor_account_id`),
-    ///   then the allowance of the caller of the function (`predecessor_account_id`) on
-    ///   the account of `owner_id` should be greater or equal than the transfer `amount`.
-    /// * Alternatively, if they have infinite approval, their approval amount wont be reduced.
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: U128) {
-        let initial_storage = env::storage_usage();
-
-        // Stop people accidentally sending tokens to the contract
-        assert_ne!(
-            new_owner_id, env::current_account_id(),
-            "Invalid transfer to this contract"
-        );
-
-        assert!(
-            env::is_valid_account_id(new_owner_id.as_bytes()),
-            "New owner's account ID is invalid"
-        );
-        let amount = amount.into();
-        if amount == 0 {
-            env::panic(b"Can't transfer 0 tokens");
-        }
-        assert_ne!(
-            owner_id, new_owner_id,
-            "The new owner should be different from the current owner"
-        );
-        // Retrieving the account from the state.
-        let mut account = self.get_account(&owner_id);
-
-        // Checking and updating unlocked balance
-        if account.balance < amount {
-            env::panic(b"Not enough balance");
-        }
-        account.balance -= amount;
-
-        // If transferring by escrow, need to check and update allowance.
-        let escrow_account_id = env::predecessor_account_id();
-        if escrow_account_id != owner_id {
-            let allowance = account.get_allowance(&escrow_account_id);
-            if allowance != std::u128::MAX {
-                if allowance < amount {
-                    env::panic(b"Not enough allowance");
-                }
-                account.set_allowance(&escrow_account_id, allowance - amount);
-            }
-        }
-
-        // Saving the account back to the state.
-        self.set_account(&owner_id, &account);
-
-        // Deposit amount to the new owner and save the new account to the state.
-        let mut new_account = self.get_account(&new_owner_id);
-        new_account.balance += amount;
-        self.set_account(&new_owner_id, &new_account);
-        self.refund_storage(initial_storage);
-    }
-
-    /// Transfer `amount` of tokens from the caller of the contract (`predecessor_id`) to
-    /// `new_owner_id`.
-    /// Act the same was as `transfer_from` with `owner_id` equal to the caller of the contract
-    /// (`predecessor_id`).
-    /// Requirements:
-    /// * Caller of the method has to attach deposit enough to cover storage difference at the
-    ///   fixed storage price defined in the contract.
-    #[payable]
-    pub fn transfer(&mut self, new_owner_id: AccountId, amount: U128) {
-        // NOTE: New owner's Account ID checked in transfer_from.
-        // Storage fees are also refunded in transfer_from.
-        self.transfer_from(env::predecessor_account_id(), new_owner_id, amount);
-    }
-
     /// Returns total supply of tokens.
     pub fn get_total_supply(&self) -> U128 {
         self.total_supply.into()
@@ -370,19 +121,6 @@ impl FungibleToken {
     /// Returns balance of the `owner_id` account.
     pub fn get_balance(&self, owner_id: AccountId) -> U128 {
         self.get_account(&owner_id).balance.into()
-    }
-
-    /// Returns current allowance of `escrow_account_id` for the account of `owner_id`.
-    ///
-    /// NOTE: Other contracts should not rely on this information, because by the moment a contract
-    /// receives this information, the allowance may already be changed by the owner.
-    /// So this method should only be used on the front-end to see the current allowance.
-    pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> U128 {
-        assert!(
-            env::is_valid_account_id(escrow_account_id.as_bytes()),
-            "Escrow account ID is invalid"
-        );
-        self.get_account(&owner_id).get_allowance(&escrow_account_id).into()
     }
 }
 
