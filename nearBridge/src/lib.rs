@@ -53,13 +53,13 @@ impl NearBridge {
 
     /// Deposit NEAR for bridging from the predecessor account ID
     /// Requirements:
-    /// * `receiver_id` must be a valid account ID
+    /// * `eth_recipient` must be a valid eth account
     /// * `amount` must be a positive integer
     /// * Caller of the method has to attach deposit enough to cover:
     ///   * The `amount` of Near tokens being bridged, and
     ///   * The storage difference at the fixed storage price defined in the contract.
     #[payable]
-    pub fn deposit(&mut self, receiver_id: AccountId, amount: U128) {
+    pub fn deposit(&mut self, eth_recipient: String, amount: U128) {
         let initial_storage = env::storage_usage();
 
         // As attached deposit includes tokens for storage, deposit amount needs to be explicit
@@ -68,18 +68,27 @@ impl NearBridge {
             env::panic(b"Deposit amount must be greater than zero");
         }
 
-        assert!(
-            env::is_valid_account_id(receiver_id.as_bytes()),
-            "New owner's account ID is invalid"
-        );
-
-        assert_ne!(
-            receiver_id, env::current_account_id(),
-            "Invalid transfer to this contract"
-        );
+        // todo check receiver on Eth side looks valid i.e. 20 bytes
+        // assert!(
+        //     env::is_valid_account_id(receiver_id.as_bytes()),
+        //     "New owner's account ID is invalid"
+        // );
+        //
+        // assert_ne!(
+        //     receiver_id, env::current_account_id(),
+        //     "Invalid transfer to this contract"
+        // );
 
         // Mint to receiver_id
         //self.mint(&receiver_id, amount.clone());
+
+        let predecessor = env::predecessor_account_id();
+        let mut account = self.get_account(&predecessor);
+        account.total_locked += amount;
+        self.set_account(&predecessor, &account);
+
+        // Increase total locked
+        self.total_locked += amount;
 
         // Check we have enough attached deposit
         let current_storage = env::storage_usage();
@@ -113,62 +122,25 @@ impl NearBridge {
         }
     }
 
-    /// Returns total supply of tokens.
-    pub fn get_total_supply(&self) -> U128 {
-        self.total_supply.into()
-    }
-
     /// Returns balance of the `owner_id` account.
-    pub fn get_balance(&self, owner_id: AccountId) -> U128 {
-        self.get_account(&owner_id).balance.into()
+    pub fn get_total_locked(&self, owner_id: AccountId) -> U128 {
+        self.get_account(&owner_id).total_locked.into()
     }
 }
 
-impl FungibleToken {
-    /// Internal method for minting an `amount` to `receiver_id` AccountId
-    fn mint(&mut self, receiver_id: &AccountId, amount: Balance) {
-        if self.total_supply == std::u128::MAX {
-            env::panic(b"Total supply limit reached");
-        }
-
-        if std::u128::MAX - self.total_supply < amount {
-            env::panic(b"Amount will exceed max permitted total supply");
-        }
-
-        let mut account = self.get_account(&receiver_id);
-        account.balance += amount;
-        self.set_account(&receiver_id, &account);
-
-        // Increase total supply
-        self.total_supply += amount;
-    }
-
-    /// Internal method for burning an `amount` from `owner_id` AccountId
-    fn burn(&mut self, owner_id: &AccountId, amount: Balance) {
-        let mut account = self.get_account(&owner_id);
-
-        if account.balance < amount {
-            env::panic(b"Burning more than the account balance");
-        }
-
-        account.balance -= amount;
-        self.set_account(&owner_id, &account);
-
-        // Decrease total supply
-        self.total_supply -= amount;
-    }
+impl NearBridge {
 
     /// Helper method to get the account details for `owner_id`.
     fn get_account(&self, owner_id: &AccountId) -> Account {
         assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let account_hash = env::sha256(owner_id.as_bytes());
-        self.accounts.get(&account_hash).unwrap_or_else(|| Account::new(account_hash))
+        self.accounts.get(&account_hash).unwrap_or_else(|| Account::new())
     }
 
     /// Helper method to set the account details for `owner_id` to the state.
     fn set_account(&mut self, owner_id: &AccountId, account: &Account) {
         let account_hash = env::sha256(owner_id.as_bytes());
-        if account.balance > 0 || account.num_allowances > 0 {
+        if account.total_locked > 0 {
             self.accounts.insert(&account_hash, &account);
         } else {
             self.accounts.remove(&account_hash);
