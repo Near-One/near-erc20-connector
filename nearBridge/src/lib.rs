@@ -2,7 +2,7 @@
 * Bridge for Near Native token
 */
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LookupMap;
+use near_sdk::collections::{LookupMap, UnorderedSet};
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, StorageUsage};
 
@@ -11,6 +11,16 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 
 /// Price per 1 byte of storage from mainnet genesis config.
 const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
+
+pub type EthAddress = [u8; 20];
+
+pub fn validate_eth_address(address: String) -> EthAddress {
+    let data = hex::decode(address).expect("address should be a valid hex string.");
+    assert_eq!(data.len(), 20, "address should be 20 bytes long");
+    let mut result = [0u8; 20];
+    result.copy_from_slice(&data);
+    result
+}
 
 /// Contains balance and allowances information for one account.
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -32,6 +42,15 @@ pub struct NearBridge {
 
     /// Total near locked in contract
     pub total_locked: Balance,
+
+    /// The account of the prover that we can use to prove
+    pub prover_account: AccountId,
+
+    /// Address of the associated Ethereum eNear ERC20 contract.
+    pub e_near_address: EthAddress,
+
+    /// Hashes of the events that were already used.
+    pub used_events: UnorderedSet<Vec<u8>>,
 }
 
 impl Default for NearBridge {
@@ -43,11 +62,14 @@ impl Default for NearBridge {
 #[near_bindgen]
 impl NearBridge {
     #[init]
-    pub fn new() -> Self {
+    pub fn new(prover_account: AccountId, e_near_address: String) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
             accounts: LookupMap::new(b"a".to_vec()),
-            total_locked: 0u128
+            total_locked: 0u128,
+            prover_account,
+            e_near_address: validate_eth_address(e_near_address),
+            used_events: UnorderedSet::new(b"u".to_vec()),
         }
     }
 
@@ -120,6 +142,11 @@ impl NearBridge {
             env::log(format!("Refunding {} excess tokens", refund_amount).as_bytes());
             Promise::new(env::predecessor_account_id()).transfer(refund_amount);
         }
+    }
+
+    #[payable]
+    pub fn finalise_unlock(&mut self, receiver: AccountId, amount: U128) {
+
     }
 
     /// Returns balance of the `owner_id` account.
