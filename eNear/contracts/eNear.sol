@@ -32,7 +32,6 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
 
     struct BridgeResult {
         uint128 amount;
-        address token;
         address recipient;
     }
 
@@ -101,11 +100,6 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
         uint8 flag = borshData.decodeU8();
         require(flag == 0, "ERR_NOT_WITHDRAW_RESULT");
         result.amount = borshData.decodeU128();
-        bytes20 token = borshData.decodeBytes20();
-        result.token = address(uint160(token));
-
-        require(result.token == address(this), "Invalid transfer");
-
         bytes20 recipient = borshData.decodeBytes20();
         result.recipient = address(uint160(recipient));
     }
