@@ -8,6 +8,8 @@ use near_sdk::{
     env, near_bindgen, AccountId, Balance, Promise, StorageUsage, ext_contract, Gas
 };
 
+use admin_controlled::{AdminControlled, Mask};
+
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
@@ -32,6 +34,9 @@ const NO_DEPOSIT: Balance = 0;
 /// Gas to call verify_log_entry on prover.
 const VERIFY_LOG_ENTRY_GAS: Gas = 50_000_000_000_000;
 
+const PAUSE_MIGRATE_TO_ETH: Mask = 1 << 0;
+const PAUSE_ETH_TO_NEAR_TRANSFER: Mask = 1 << 1;
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct NearBridge {
@@ -43,6 +48,9 @@ pub struct NearBridge {
 
     /// Hashes of the events that were already used.
     pub used_events: UnorderedSet<Vec<u8>>,
+
+    /// Mask determining all paused functions
+    paused: Mask,
 }
 
 impl Default for NearBridge {
@@ -60,6 +68,7 @@ impl NearBridge {
             prover_account,
             e_near_address: validate_eth_address(e_near_address),
             used_events: UnorderedSet::new(b"u".to_vec()),
+            paused: Mask::default(),
         }
     }
 
@@ -72,6 +81,8 @@ impl NearBridge {
     ///   * The storage difference at the fixed storage price defined in the contract.
     #[payable]
     pub fn migrate_to_ethereum(&mut self, eth_recipient: String) {
+        self.check_not_paused(PAUSE_MIGRATE_TO_ETH);
+
         // As attached deposit includes tokens for storage, deposit amount needs to be explicit
         let attached_deposit = env::attached_deposit();
         if attached_deposit == 0 {
@@ -86,7 +97,7 @@ impl NearBridge {
 
     #[payable]
     pub fn finalise_eth_to_near_transfer(&mut self, #[serializer(borsh)] proof: Proof) {
-        //self.check_not_paused(PAUSE_DEPOSIT);
+        self.check_not_paused(PAUSE_ETH_TO_NEAR_TRANSFER);
 
         let event = TransferToNearInitiatedEvent::from_log_entry_data(&proof.log_entry_data);
         assert_eq!(
@@ -211,3 +222,5 @@ pub trait ExtNearBridge {
 pub fn assert_self() {
     assert_eq!(env::predecessor_account_id(), env::current_account_id());
 }
+
+admin_controlled::impl_admin_controlled!(NearBridge, paused);
