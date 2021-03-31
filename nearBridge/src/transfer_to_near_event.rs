@@ -67,21 +67,20 @@ impl std::fmt::Display for TransferToNearInitiatedEvent {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn test_event_data() {
-//         let event_data = EthLockedEvent {
-//             locker_address: [0u8; 20],
-//             token: "6b175474e89094c44da98b954eedeac495271d0f".to_string(),
-//             sender: "00005474e89094c44da98b954eedeac495271d0f".to_string(),
-//             amount: 1000,
-//             recipient: "123".to_string(),
-//         };
-//         let data = event_data.to_log_entry_data();
-//         let result = EthLockedEvent::from_log_entry_data(&data);
-//         assert_eq!(result, event_data);
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_event_data() {
+        let event_data = TransferToNearInitiatedEvent {
+            e_near_address: [0u8; 20],
+            sender: "00005474e89094c44da98b954eedeac495271d0f".to_string(),
+            amount: 1000,
+            recipient: "123".to_string(),
+        };
+        let data = event_data.to_log_entry_data();
+        let result = TransferToNearInitiatedEvent::from_log_entry_data(&data);
+        assert_eq!(result, event_data);
+    }
+}

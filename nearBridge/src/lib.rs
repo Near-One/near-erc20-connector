@@ -2,10 +2,9 @@
 * Bridge for Near Native token
 */
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedSet};
-use near_sdk::json_types::U128;
+use near_sdk::collections::{UnorderedSet};
 use near_sdk::{
-    env, near_bindgen, AccountId, Balance, Promise, StorageUsage, ext_contract, Gas
+    env, near_bindgen, AccountId, Balance, Promise, ext_contract, Gas
 };
 
 use admin_controlled::{AdminControlled, Mask};
@@ -16,20 +15,17 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 /// Price per 1 byte of storage from mainnet genesis config.
 const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
 
-type EthereumAddress = [u8; 20];
-pub use lock_event::TransferToNearInitiatedEvent;
+pub use transfer_to_near_event::TransferToNearInitiatedEvent;
 use prover::*;
 pub use prover::{validate_eth_address, Proof};
 
-mod lock_event;
+mod transfer_to_near_event;
 pub mod prover;
-mod unlock_event;
 
 /// Gas to call finalise method.
 const FINISH_FINALISE_GAS: Gas = 50_000_000_000_000;
 
 const NO_DEPOSIT: Balance = 0;
-
 
 /// Gas to call verify_log_entry on prover.
 const VERIFY_LOG_ENTRY_GAS: Gas = 50_000_000_000_000;
@@ -176,32 +172,6 @@ impl NearBridge {
         let required_deposit =
             Balance::from(current_storage - initial_storage) * STORAGE_PRICE_PER_BYTE;
         required_deposit
-    }
-}
-
-impl NearBridge {
-
-    fn refund_storage(&self, initial_storage: StorageUsage) {
-        let current_storage = env::storage_usage();
-        let attached_deposit = env::attached_deposit();
-        let refund_amount = if current_storage > initial_storage {
-            let required_deposit =
-                Balance::from(current_storage - initial_storage) * STORAGE_PRICE_PER_BYTE;
-            assert!(
-                required_deposit <= attached_deposit,
-                "The required attached deposit is {}, but the given attached deposit is is {}",
-                required_deposit,
-                attached_deposit,
-            );
-            attached_deposit - required_deposit
-        } else {
-            attached_deposit
-                + Balance::from(initial_storage - current_storage) * STORAGE_PRICE_PER_BYTE
-        };
-        if refund_amount > 0 {
-            env::log(format!("Refunding {} tokens for storage", refund_amount).as_bytes());
-            Promise::new(env::predecessor_account_id()).transfer(refund_amount);
-        }
     }
 }
 
