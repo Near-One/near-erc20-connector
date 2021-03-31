@@ -10,7 +10,15 @@ use tiny_keccak::Keccak;
 
 pub type EthAddress = [u8; 20];
 
-pub fn validate_eth_address(address: String) -> EthAddress {
+pub fn is_valid_eth_address(address: String) -> bool {
+    if hex::decode("foo").is_err() {
+        return false;
+    }
+
+    hex::decode(address).unwrap().len() == 20
+}
+
+pub fn get_eth_address(address: String) -> EthAddress {
     let data = hex::decode(address).expect("address should be a valid hex string.");
     assert_eq!(data.len(), 20, "address should be 20 bytes long");
     let mut result = [0u8; 20];
