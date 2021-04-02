@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Bridge, INearProver } from "./Bridge.sol";
 import { AdminControlled } from "./AdminControlled.sol";
 
-contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
+contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
 
     uint constant UNPAUSED_ALL = 0;
     uint constant PAUSED_FINALISE_FROM_NEAR = 1 << 0;
@@ -89,6 +89,14 @@ contract eNear is ERC20("eNear","eNear"), Bridge, AdminControlled {
     external pausable (PAUSED_XFER_TO_NEAR) {
         _burn(_msgSender(), _amount);
         emit TransferToNearInitiated(_msgSender(), _amount, _nearReceiverAccountId);
+    }
+
+    function updateName(string calldata _name) external onlyAdmin {
+        nameOverride = _name;
+    }
+
+    function updateSymbol(string calldata _symbol) external onlyAdmin {
+        symbolOverride = _symbol;
     }
 
     function version() virtual internal pure returns (uint256) {
