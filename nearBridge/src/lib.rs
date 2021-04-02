@@ -147,17 +147,19 @@ impl NearBridge {
         assert_self();
         assert!(verification_success, "Failed to verify the proof");
 
-        let required_deposit = self.record_proof(&proof);
-
-        assert!(
-            env::attached_deposit() >= required_deposit
-        );
+        let (required_deposit, event_key) = self.record_proof(&proof);
+        let attached_deposit = env::attached_deposit();
+        if attached_deposit < required_deposit {
+            self.delete_proof(event_key);
+            Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
+            env::panic(b"Method is either paused or ETH address is invalid");
+        }
 
         Promise::new(new_owner_id).transfer(amount);
     }
 
     /// Record proof to make sure it is not re-used later for anther deposit.
-    fn record_proof(&mut self, proof: &Proof) -> Balance {
+    fn record_proof(&mut self, proof: &Proof) -> (Balance, Vec<u8>) {
         // TODO: Instead of sending the full proof (clone only relevant parts of the Proof)
         //       log_index / receipt_index / header_data
         assert_self();
@@ -175,7 +177,12 @@ impl NearBridge {
 
         let required_deposit =
             Balance::from(current_storage - initial_storage) * STORAGE_PRICE_PER_BYTE;
-        required_deposit
+        (required_deposit, key.clone())
+    }
+
+    fn delete_proof(&mut self, event_key: Vec<u8>) {
+        assert_self();
+        self.used_events.remove(&event_key);
     }
 }
 
