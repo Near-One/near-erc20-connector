@@ -11,7 +11,7 @@ name = "admin-controlled"
 version = "0.1.0"
 source = "git+https://github.com/near/rainbow-bridge?rev=3a60b7eac2f06d160bd7b20b67a181961c08055d#3a60b7eac2f06d160bd7b20b67a181961c08055d"
 dependencies = [
- "near-sdk",
+ "near-sdk 3.0.0-pre.3",
 ]
 
 [[package]]
@@ -207,7 +207,7 @@ dependencies = [
  "borsh",
  "derive_more",
  "ethereum-types",
- "near-sdk",
+ "near-sdk 3.0.0-pre.3",
  "rlp",
  "rlp-derive",
  "serde",
@@ -359,9 +359,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.91"
+version = "0.2.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8916b1f6ca17130ec6568feccee27c156ad12037880833a3b842a823236502e7"
+checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
 
 [[package]]
 name = "memchr"
@@ -377,10 +377,11 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "near-contract-standards"
-version = "3.0.0-pre.3"
-source = "git+https://github.com/near/near-sdk-rs?rev=613adcab6322e4f830efb4d5bde2a810ae642158#613adcab6322e4f830efb4d5bde2a810ae642158"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4c6ba30b6c7a9aedae2bb0301ccf69ba196a38641ce7d2dd4a3f72dc3d9912f"
 dependencies = [
- "near-sdk",
+ "near-sdk 3.0.1",
 ]
 
 [[package]]
@@ -447,7 +448,24 @@ dependencies = [
  "borsh",
  "bs58",
  "near-primitives-core",
- "near-sdk-macros",
+ "near-sdk-macros 3.0.0-pre.3",
+ "near-vm-logic",
+ "serde",
+ "serde_json",
+ "wee_alloc",
+]
+
+[[package]]
+name = "near-sdk"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "671094120c7c54d5378e54d5e9d3d51b0248646e9028ffc11d7c9bd8f69d3534"
+dependencies = [
+ "base64 0.13.0",
+ "borsh",
+ "bs58",
+ "near-primitives-core",
+ "near-sdk-macros 3.0.1",
  "near-vm-logic",
  "serde",
  "serde_json",
@@ -466,11 +484,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-sdk-core"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d61e12885c4917ef8bee7edcc94198ad19c12c126dc5d8c3a48e6b0bf6fe9108"
+dependencies = [
+ "Inflector",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "near-sdk-macros"
 version = "3.0.0-pre.3"
 source = "git+https://github.com/near/near-sdk-rs?rev=613adcab6322e4f830efb4d5bde2a810ae642158#613adcab6322e4f830efb4d5bde2a810ae642158"
 dependencies = [
- "near-sdk-core",
+ "near-sdk-core 3.0.0-pre.3",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "near-sdk-macros"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5614c69448e846bebb2223a0742ebb92df87d2e67a0fdff2cff5778e9a463585"
+dependencies = [
+ "near-sdk-core 3.0.1",
  "proc-macro2",
  "quote",
  "syn",
@@ -515,7 +557,7 @@ dependencies = [
  "ethabi",
  "hex",
  "near-contract-standards",
- "near-sdk",
+ "near-sdk 3.0.1",
  "rlp",
  "serde",
  "serde_json",
@@ -614,9 +656,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.24"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
+checksum = "a152013215dca273577e18d2bf00fa862b89b24169fb78c4c95aeb07992c9cec"
 dependencies = [
  "unicode-xid",
 ]
