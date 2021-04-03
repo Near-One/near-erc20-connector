@@ -26,6 +26,7 @@ contract('eNear ERC20 behaviour', function (accounts) {
       symbol,
       Buffer.from('factory', 'utf-8'),
       prover,
+      '0',
       admin,
       0
     )

@@ -20,7 +20,6 @@ const SCHEMA = {
     kind: 'struct', fields: [
       ['flag', 'u8'],
       ['amount', 'u128'],
-      ['token', [20]],
       ['recipient', [20]],
     ]
   }
@@ -51,6 +50,7 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
         symbol,
         Buffer.from('eNearBridge', 'utf-8'),
         this.proverMock.address,
+        '0',
         eNearAdmin,
         0
       ).encodeABI(),
@@ -68,6 +68,7 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
           symbol,
           Buffer.from('eNearBridge', 'utf-8'),
           this.proverMock.address,
+          '0',
           eNearAdmin,
           0
         ),
@@ -119,7 +120,6 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'Unlock', {
         flag: 0,
         amount: amount.toString(),
-        token: hexToBytes(this.token.address),
         recipient: hexToBytes(bob),
       }).toString('base64');
 

@@ -11,8 +11,8 @@ import { AdminControlled } from "./AdminControlled.sol";
 contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
 
     uint constant UNPAUSED_ALL = 0;
-    uint constant PAUSED_FINALISE_FROM_NEAR = 1 << 0;
-    uint constant PAUSED_XFER_TO_NEAR = 1 << 1;
+    uint constant PAUSE_FINALISE_FROM_NEAR = 1 << 0;
+    uint constant PAUSE_TRANSFER_TO_NEAR = 1 << 1;
 
     string nameOverride;
     string symbolOverride;
@@ -26,8 +26,9 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
     );
 
     event NearToEthTransferFinalised (
+        address indexed sender,
         uint128 amount,
-        address recipient
+        address indexed recipient
     );
 
     struct BridgeResult {
@@ -38,21 +39,24 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
     function init(
         string memory _tokenName,
         string memory _tokenSymbol,
-        bytes memory _nearTokenFactory,
+        bytes memory _nearConnector,
         INearProver _prover,
+        uint64 _minBlockAcceptanceHeight,
         address _admin,
-        uint _pausedFlags
+        uint256 _pausedFlags
     ) public {
         require(version().sub(1) == initVersion, "Can only call init() once per version");
 
         nameOverride = _tokenName;
         symbolOverride = _tokenSymbol;
 
-        require(_nearTokenFactory.length > 0, "Invalid Near Token Factory address");
+        require(_nearConnector.length > 0, "Invalid Near Token Factory address");
         require(address(_prover) != address(0), "Invalid Near prover address");
 
-        nearTokenFactory_ = _nearTokenFactory;
+        nearConnector_ = _nearConnector;
         prover_ = _prover;
+
+        minBlockAcceptanceHeight_ = _minBlockAcceptanceHeight;
 
         admin = _admin;
 
@@ -76,17 +80,17 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
     }
 
     function finaliseNearToEthTransfer(bytes memory proofData, uint64 proofBlockHeight)
-    external pausable (PAUSED_FINALISE_FROM_NEAR) {
+    external pausable (PAUSE_FINALISE_FROM_NEAR) {
         ProofDecoder.ExecutionStatus memory status = _parseAndConsumeProof(proofData, proofBlockHeight);
         BridgeResult memory result = _decodeBridgeResult(status.successValue);
 
         _mint(result.recipient, result.amount);
 
-        emit NearToEthTransferFinalised(result.amount, result.recipient);
+        emit NearToEthTransferFinalised(_msgSender(), result.amount, result.recipient);
     }
 
     function transferToNear(uint256 _amount, string calldata _nearReceiverAccountId)
-    external pausable (PAUSED_XFER_TO_NEAR) {
+    external pausable (PAUSE_TRANSFER_TO_NEAR) {
         _burn(_msgSender(), _amount);
         emit TransferToNearInitiated(_msgSender(), _amount, _nearReceiverAccountId);
     }
