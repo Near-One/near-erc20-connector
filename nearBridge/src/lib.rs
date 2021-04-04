@@ -388,6 +388,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn finish_eth_to_near_transfer_panics_if_attached_deposit_is_not_sufficient_to_record_proof() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()))
+    }
+
+    #[test]
     fn finalise_eth_to_near_transfer_works_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
@@ -405,7 +418,11 @@ mod tests {
 
         contract.migrate_to_ethereum(alice_eth_address());
 
+        // todo adjust attached deposit down
+
         // Lets suppose Alice migrates back
         contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()))
+
+        // todo asserts i.e. that alice has received the 1 near back etc.
     }
 }
