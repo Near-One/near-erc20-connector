@@ -152,7 +152,7 @@ impl NearBridge {
         if attached_deposit < required_deposit {
             self.delete_proof(event_key);
             Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
-            env::panic(b"Method is either paused or ETH address is invalid");
+            env::panic(b"Attached deposit is not sufficient to record proof");
         }
 
         Promise::new(new_owner_id).transfer(amount);
