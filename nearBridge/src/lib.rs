@@ -373,4 +373,17 @@ mod tests {
 
         contract.finalise_eth_to_near_transfer(sample_proof())
     }
+
+    #[test]
+    #[should_panic]
+    fn finalise_eth_to_near_transfer_panics_when_event_originates_from_wrong_contract() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()))
+    }
 }
