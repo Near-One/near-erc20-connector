@@ -326,6 +326,28 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn migrate_near_to_eth_panics_when_contract_is_paused() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        contract.set_paused(PAUSE_MIGRATE_TO_ETH);
+
+        // lets deposit 1 Near
+        let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
+        set_env!(
+            predecessor_account_id: alice_near_account(),
+            attached_deposit: deposit_amount,
+        );
+
+        contract.migrate_to_ethereum(alice_eth_address())
+    }
+
+    #[test]
+    #[should_panic]
     fn migrate_near_to_eth_panics_when_eth_address_is_invalid() {
         set_env!(predecessor_account_id: alice_near_account());
 
