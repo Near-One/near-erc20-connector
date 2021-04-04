@@ -87,7 +87,7 @@ impl NearBridge {
         // If the method is paused or the eth recipient address is invalid, then we need to:
         //  1) Return the attached deposit
         //  2) Panic and tell the user why
-        if is_valid_eth_address(eth_recipient) == false {
+        if self.is_paused(PAUSE_MIGRATE_TO_ETH) || is_valid_eth_address(eth_recipient) == false {
             Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
             env::panic(b"Method is either paused or ETH address is invalid");
         }
@@ -245,7 +245,7 @@ mod tests {
     fn alice_near_account() -> AccountId { "alice.near".to_string() }
     fn prover_near_account() -> AccountId { "prover".to_string() }
     fn e_near_eth_address() -> String { "68a3637ba6e75c0f66b61a42639c4e9fcd3d4824".to_string() }
-    fn alice_eth_address() -> String { "25Ac31A08EBA29067Ba4637788d1DbFB893cEBf1".to_string() }
+    fn alice_eth_address() -> String { "25ac31a08eba29067ba4637788d1dbfb893cebf1".to_string() }
     fn invalid_eth_address() -> String { "25Ac31A08EBA29067Ba4637788d1DbFB893cEBf".to_string() }
 
     /// Generate a valid ethereum address
