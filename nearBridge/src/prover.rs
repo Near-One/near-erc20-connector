@@ -11,7 +11,7 @@ use tiny_keccak::Keccak;
 pub type EthAddress = [u8; 20];
 
 pub fn is_valid_eth_address(address: String) -> bool {
-    if hex::decode("foo").is_err() {
+    if hex::decode(address.clone()).is_err() {
         return false;
     }
 
