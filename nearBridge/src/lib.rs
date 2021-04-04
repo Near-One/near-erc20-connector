@@ -358,4 +358,19 @@ mod tests {
 
         contract.migrate_to_ethereum(invalid_eth_address())
     }
+
+    #[test]
+    #[should_panic]
+    fn finalise_eth_to_near_transfer_panics_when_contract_is_paused() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        contract.set_paused(PAUSE_ETH_TO_NEAR_TRANSFER);
+
+        contract.finalise_eth_to_near_transfer(sample_proof())
+    }
 }
