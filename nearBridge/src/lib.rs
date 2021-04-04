@@ -258,41 +258,39 @@ mod tests {
             .to_hex()
     }
 
-    // fn sample_proof() -> Proof {
-    //     Proof {
-    //         log_index: 0,
-    //         log_entry_data: vec![],
-    //         receipt_index: 0,
-    //         receipt_data: vec![],
-    //         header_data: vec![],
-    //         proof: vec![],
-    //     }
-    // }
-    //
-    // fn create_proof(locker: String, token: String) -> Proof {
-    //     let event_data = EthLockedEvent {
-    //         locker_address: locker
-    //             .from_hex::<Vec<_>>()
-    //             .unwrap()
-    //             .as_slice()
-    //             .try_into()
-    //             .unwrap(),
-    //
-    //         token,
-    //         sender: "00005474e89094c44da98b954eedeac495271d0f".to_string(),
-    //         amount: 1000,
-    //         recipient: "123".to_string(),
-    //     };
-    //
-    //     Proof {
-    //         log_index: 0,
-    //         log_entry_data: event_data.to_log_entry_data(),
-    //         receipt_index: 0,
-    //         receipt_data: vec![],
-    //         header_data: vec![],
-    //         proof: vec![],
-    //     }
-    // }
+    fn sample_proof() -> Proof {
+        Proof {
+            log_index: 0,
+            log_entry_data: vec![],
+            receipt_index: 0,
+            receipt_data: vec![],
+            header_data: vec![],
+            proof: vec![],
+        }
+    }
+
+    fn create_proof(e_near: String) -> Proof {
+        let event_data = TransferToNearInitiatedEvent {
+            e_near_address: e_near
+                .from_hex::<Vec<_>>()
+                .unwrap()
+                .as_slice()
+                .try_into()
+                .unwrap(),
+            sender: "00005474e89094c44da98b954eedeac495271d0f".to_string(),
+            amount: 1000,
+            recipient: "123".to_string(),
+        };
+
+        Proof {
+            log_index: 0,
+            log_entry_data: event_data.to_log_entry_data(),
+            receipt_index: 0,
+            receipt_data: vec![],
+            header_data: vec![],
+            proof: vec![],
+        }
+    }
 
     #[test]
     fn can_migrate_near_to_eth_with_valid_params() {
