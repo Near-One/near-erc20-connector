@@ -246,6 +246,7 @@ mod tests {
     fn prover_near_account() -> AccountId { "prover".to_string() }
     fn e_near_eth_address() -> String { "68a3637ba6e75c0f66b61a42639c4e9fcd3d4824".to_string() }
     fn alice_eth_address() -> String { "25Ac31A08EBA29067Ba4637788d1DbFB893cEBf1".to_string() }
+    fn invalid_eth_address() -> String { "25Ac31A08EBA29067Ba4637788d1DbFB893cEBf".to_string() }
 
     /// Generate a valid ethereum address
     fn ethereum_address_from_id(id: u8) -> String {
@@ -310,5 +311,31 @@ mod tests {
         );
 
         contract.migrate_to_ethereum(alice_eth_address())
+    }
+
+    #[test]
+    #[should_panic]
+    fn migrate_near_to_eth_panics_when_attached_deposit_is_zero() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        contract.migrate_to_ethereum(alice_eth_address())
+    }
+
+    #[test]
+    #[should_panic]
+    fn migrate_near_to_eth_panics_when_eth_address_is_invalid() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        contract.migrate_to_ethereum(invalid_eth_address())
     }
 }
