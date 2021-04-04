@@ -386,4 +386,26 @@ mod tests {
 
         contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()))
     }
+
+    #[test]
+    fn finalise_eth_to_near_transfer_works_with_valid_params() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        // Alice deposit 1 Near to migrate to eth
+        let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
+        set_env!(
+            predecessor_account_id: alice_near_account(),
+            attached_deposit: deposit_amount,
+        );
+
+        contract.migrate_to_ethereum(alice_eth_address());
+
+        // Lets suppose Alice migrates back
+        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()))
+    }
 }
