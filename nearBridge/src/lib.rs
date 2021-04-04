@@ -205,3 +205,110 @@ pub fn assert_self() {
 }
 
 admin_controlled::impl_admin_controlled!(NearBridge, paused);
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod tests {
+    use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::{testing_env, MockedBlockchain};
+
+    use super::*;
+    use near_sdk::env::sha256;
+    use std::convert::TryInto;
+    use std::panic;
+    use uint::rustc_hex::{FromHex, ToHex};
+
+    const UNPAUSE_ALL: Mask = 0;
+
+    macro_rules! inner_set_env {
+        ($builder:ident) => {
+            $builder
+        };
+
+        ($builder:ident, $key:ident:$value:expr $(,$key_tail:ident:$value_tail:expr)*) => {
+            {
+               $builder.$key($value.try_into().unwrap());
+               inner_set_env!($builder $(,$key_tail:$value_tail)*)
+            }
+        };
+    }
+
+    macro_rules! set_env {
+        ($($key:ident:$value:expr),* $(,)?) => {
+            let mut builder = VMContextBuilder::new();
+            let mut builder = &mut builder;
+            builder = inner_set_env!(builder, $($key: $value),*);
+            testing_env!(builder.build());
+        };
+    }
+
+    fn alice_near_account() -> AccountId { "alice.near".to_string() }
+    fn prover_near_account() -> AccountId { "prover".to_string() }
+    fn e_near_eth_address() -> String { "68a3637ba6e75c0f66b61a42639c4e9fcd3d4824".to_string() }
+    fn alice_eth_address() -> String { "25Ac31A08EBA29067Ba4637788d1DbFB893cEBf1".to_string() }
+
+    /// Generate a valid ethereum address
+    fn ethereum_address_from_id(id: u8) -> String {
+        let mut buffer = vec![id];
+        sha256(buffer.as_mut())
+            .into_iter()
+            .take(20)
+            .collect::<Vec<_>>()
+            .to_hex()
+    }
+
+    // fn sample_proof() -> Proof {
+    //     Proof {
+    //         log_index: 0,
+    //         log_entry_data: vec![],
+    //         receipt_index: 0,
+    //         receipt_data: vec![],
+    //         header_data: vec![],
+    //         proof: vec![],
+    //     }
+    // }
+    //
+    // fn create_proof(locker: String, token: String) -> Proof {
+    //     let event_data = EthLockedEvent {
+    //         locker_address: locker
+    //             .from_hex::<Vec<_>>()
+    //             .unwrap()
+    //             .as_slice()
+    //             .try_into()
+    //             .unwrap(),
+    //
+    //         token,
+    //         sender: "00005474e89094c44da98b954eedeac495271d0f".to_string(),
+    //         amount: 1000,
+    //         recipient: "123".to_string(),
+    //     };
+    //
+    //     Proof {
+    //         log_index: 0,
+    //         log_entry_data: event_data.to_log_entry_data(),
+    //         receipt_index: 0,
+    //         receipt_data: vec![],
+    //         header_data: vec![],
+    //         proof: vec![],
+    //     }
+    // }
+
+    #[test]
+    fn can_migrate_near_to_eth_with_valid_params() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address()
+        );
+
+        // lets deposit 1 Near
+        let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
+        set_env!(
+            predecessor_account_id: alice_near_account(),
+            attached_deposit: deposit_amount,
+        );
+
+        contract.migrate_to_ethereum(alice_eth_address())
+    }
+}
