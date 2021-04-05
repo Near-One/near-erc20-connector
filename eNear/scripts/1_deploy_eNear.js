@@ -1,23 +1,13 @@
-const prompt = require('prompt-sync')();
-
 async function main() {
   const [deployer] = await ethers.getSigners()
   const deployerAddress = await deployer.getAddress()
   console.log(
-    "Deploying eNear with the account:",
+    "Deploying eNear logic contract with the account:",
     deployerAddress
   )
 
-  const tokenName = prompt('Token name? ');
-  const tokenSymbol = prompt('Token symbol? ');
-  const minterAndBurner = prompt('Minter and burner? ');
-
   const eNearFactory = await ethers.getContractFactory("eNear")
-  const eNear = await eNearFactory.deploy(
-    tokenName,
-    tokenSymbol,
-    minterAndBurner
-  )
+  const eNear = await eNearFactory.deploy()
 
   await eNear.deployed()
 
