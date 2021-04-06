@@ -25,6 +25,7 @@
     "prompt-sync": "^4.2.0",
     "rainbow-bridge": "https://github.com/near/rainbow-bridge#4826f4573a9039e0ee2f43ba964f709989c0906f",
     "rainbow-bridge-lib": "https://github.com/near/rainbow-bridge-lib",
-    "solidity-coverage": "^0.7.14"
+    "solidity-coverage": "^0.7.14",
+    "web3": "^1.3.5"
   }
 }

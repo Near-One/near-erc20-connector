@@ -1,16 +1,18 @@
 const prompt = require('prompt-sync')()
 const Web3 = require('web3')
 const eNearABI = require('../artifacts/contracts/eNear.sol/eNear.json').abi
+const proxyABI = require('../artifacts/contracts/TransparentUpgradeableProxyNear.sol/TransparentUpgradeableProxyNear.json').abi
 
 async function main() {
   const [deployer] = await ethers.getSigners()
   const deployerAddress = await deployer.getAddress()
   console.log(
-    "Deploying eNear proxy with the account:",
+    "Upgrading eNear proxy with the account:",
     deployerAddress
   )
 
-  const eNearLogicAddress = prompt('Logic address? ');
+  const eNearLogicAddress = prompt('New logic address? ')
+  const proxyAddress = prompt('Proxy address? ')
   const tokenName = prompt('Token name? ');
   const tokenSymbol = prompt('Token symbol? ');
   const nearConnector = prompt('Near connector account? ');
@@ -19,10 +21,14 @@ async function main() {
   const adminAddress = prompt('eNear and proxy admin? ');
   const pausedFlagValues = prompt('Paused flag values? ');
 
-  const proxyFactory = await ethers.getContractFactory("TransparentUpgradeableProxyNear")
-  const proxy = await proxyFactory.deploy(
+  const proxy = new ethers.Contract(
+    proxyAddress,
+    proxyABI,
+    deployer
+  )
+
+  await proxy.upgradeToAndCall(
     eNearLogicAddress,
-    adminAddress,
     await new Web3.eth.Contract(eNearABI).methods.init(
       tokenName,
       tokenSymbol,
@@ -33,10 +39,6 @@ async function main() {
       pausedFlagValues
     ).encodeABI()
   )
-
-  await proxy.deployed()
-
-  console.log('proxy deployed at', proxy.address)
 
   console.log('Done')
 }
