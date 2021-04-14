@@ -19,9 +19,7 @@ contract('eNear ERC20 behaviour', function (accounts) {
   const initialSupply = new BN(100);
 
   beforeEach(async function () {
-    this.token = await ERC20Mock.new();
-
-    await this.token.init(
+    this.token = await ERC20Mock.new(
       name,
       symbol,
       Buffer.from('factory', 'utf-8'),
@@ -29,7 +27,7 @@ contract('eNear ERC20 behaviour', function (accounts) {
       '0',
       admin,
       0
-    )
+    );
 
     await this.token.mintTo(initialHolder, initialSupply, {from: minter})
   });

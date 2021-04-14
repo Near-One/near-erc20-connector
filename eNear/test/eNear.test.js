@@ -5,15 +5,12 @@ const { ZERO_ADDRESS } = constants;
 const { serialize } = require('rainbow-bridge-lib/rainbow/borsh.js');
 const { borshifyOutcomeProof } = require('rainbow-bridge-lib/rainbow/borshify-proof.js');
 
-const { toWei, fromWei, hexToBytes } = web3.utils;
+const { hexToBytes } = web3.utils;
 
 const {ethers} = require('ethers')
 
 const NearProverMock = artifacts.require('NearProverMock');
 const eNear = artifacts.require('eNearMock');
-const TransparentUpgradeableProxy = artifacts.require('TransparentUpgradeableProxyMock');
-
-const eNearABI = require('../artifacts/contracts/eNear.sol/eNear.json').abi
 
 const SCHEMA = {
   'Unlock': {
@@ -39,42 +36,15 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
   beforeEach(async () => {
     this.proverMock = await NearProverMock.new()
 
-    this.logic = await eNear.new()
-
-    // deploys the proxy and calls init on the implementation
-    this.proxy = await TransparentUpgradeableProxy.new(
-      this.logic.address,
-      proxyAdmin,
-      await new web3.eth.Contract(eNearABI).methods.init(
-        name,
-        symbol,
-        Buffer.from('eNearBridge', 'utf-8'),
-        this.proverMock.address,
-        '0',
-        eNearAdmin,
-        0
-      ).encodeABI(),
-      {from: deployer}
+    this.token = await eNear.new(
+      name,
+      symbol,
+      Buffer.from('eNearBridge', 'utf-8'),
+      this.proverMock.address,
+      '0',
+      eNearAdmin,
+      0
     )
-
-    this.token = await eNear.at(this.proxy.address)
-  })
-
-  describe('init()', () => {
-    it('Reverts when version already initialised', async () => {
-      await expectRevert(
-        this.token.init(
-          name,
-          symbol,
-          Buffer.from('eNearBridge', 'utf-8'),
-          this.proverMock.address,
-          '0',
-          eNearAdmin,
-          0
-        ),
-        "Can only call init() once per version"
-      )
-    })
   })
 
   describe('transferToNear()', () => {

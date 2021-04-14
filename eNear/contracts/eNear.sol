@@ -4,20 +4,15 @@ pragma solidity 0.6.12;
 
 import "rainbow-bridge/contracts/eth/nearprover/contracts/ProofDecoder.sol";
 import "rainbow-bridge/contracts/eth/nearbridge/contracts/Borsh.sol";
+import "rainbow-bridge/contracts/eth/nearbridge/contracts/AdminControlled.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Bridge, INearProver } from "./Bridge.sol";
-import { AdminControlled } from "./AdminControlled.sol";
 
-contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
+contract eNear is ERC20, Bridge, AdminControlled {
 
     uint constant UNPAUSED_ALL = 0;
     uint constant PAUSE_FINALISE_FROM_NEAR = 1 << 0;
     uint constant PAUSE_TRANSFER_TO_NEAR = 1 << 1;
-
-    string nameOverride;
-    string symbolOverride;
-
-    uint256 initVersion;
 
     event TransferToNearInitiated (
         address indexed sender,
@@ -36,7 +31,7 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
         address recipient;
     }
 
-    function init(
+    constructor(
         string memory _tokenName,
         string memory _tokenSymbol,
         bytes memory _nearConnector,
@@ -44,12 +39,7 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
         uint64 _minBlockAcceptanceHeight,
         address _admin,
         uint256 _pausedFlags
-    ) public {
-        require(version().sub(1) == initVersion, "Can only call init() once per version");
-
-        nameOverride = _tokenName;
-        symbolOverride = _tokenSymbol;
-
+    ) public ERC20(_tokenName, _tokenSymbol) AdminControlled(_admin, _pausedFlags) {
         require(_nearConnector.length > 0, "Invalid Near Token Factory address");
         require(address(_prover) != address(0), "Invalid Near prover address");
 
@@ -58,25 +48,8 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
 
         minBlockAcceptanceHeight_ = _minBlockAcceptanceHeight;
 
-        admin = _admin;
-
-        // Add the possibility to set pause flags on the initialization
-        paused = _pausedFlags;
-
-        initVersion = version();
-    }
-
-    function name() public view override returns (string memory) {
-        return nameOverride;
-    }
-
-    function symbol() public view override returns (string memory) {
-        return symbolOverride;
-    }
-
-    function decimals() public view override returns (uint8) {
-        // set decimals to 24 to mirror yocto Near
-        return 24;
+        // Match yocto Near
+        _setupDecimals(24);
     }
 
     function finaliseNearToEthTransfer(bytes memory proofData, uint64 proofBlockHeight)
@@ -93,18 +66,6 @@ contract eNear is ERC20("NEAR","NEAR"), Bridge, AdminControlled {
     external pausable (PAUSE_TRANSFER_TO_NEAR) {
         _burn(_msgSender(), _amount);
         emit TransferToNearInitiated(_msgSender(), _amount, _nearReceiverAccountId);
-    }
-
-    function updateName(string calldata _name) external onlyAdmin {
-        nameOverride = _name;
-    }
-
-    function updateSymbol(string calldata _symbol) external onlyAdmin {
-        symbolOverride = _symbol;
-    }
-
-    function version() virtual internal pure returns (uint256) {
-        return 1;
     }
 
     function _decodeBridgeResult(bytes memory data) internal view returns(BridgeResult memory result) {
