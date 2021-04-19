@@ -17,7 +17,7 @@ const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
 
 pub use transfer_to_near_event::TransferToNearInitiatedEvent;
 use prover::*;
-pub use prover::{is_valid_eth_address, get_eth_address, Proof};
+pub use prover::{is_valid_eth_address, get_eth_address, Proof, EthAddress};
 
 mod transfer_to_near_event;
 pub mod prover;
@@ -32,6 +32,14 @@ const VERIFY_LOG_ENTRY_GAS: Gas = 50_000_000_000_000;
 
 const PAUSE_MIGRATE_TO_ETH: Mask = 1 << 0;
 const PAUSE_ETH_TO_NEAR_TRANSFER: Mask = 1 << 1;
+
+#[derive(Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
+pub enum ResultType {
+    MigrateNearToEthereum {
+        amount: Balance,
+        recipient: EthAddress,
+    }
+}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -76,8 +84,9 @@ impl NearBridge {
     ///   * The `amount` of Near tokens being bridged, and
     ///   * The storage difference at the fixed storage price defined in the contract.
     #[payable]
+    #[result_serializer(borsh)]
     // todo: how much GAS is required to execute this method with sending the tokens back and ensure we have enough
-    pub fn migrate_to_ethereum(&mut self, eth_recipient: String) {
+    pub fn migrate_to_ethereum(&mut self, eth_recipient: String) -> ResultType {
         // Predecessor must attach Near to migrate to ETH
         let attached_deposit = env::attached_deposit();
         if attached_deposit == 0 {
@@ -87,12 +96,16 @@ impl NearBridge {
         // If the method is paused or the eth recipient address is invalid, then we need to:
         //  1) Return the attached deposit
         //  2) Panic and tell the user why
-        if self.is_paused(PAUSE_MIGRATE_TO_ETH) || is_valid_eth_address(eth_recipient) == false {
+        let eth_recipient_clone = eth_recipient.clone();
+        if self.is_paused(PAUSE_MIGRATE_TO_ETH) || is_valid_eth_address(eth_recipient_clone) == false {
             Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
             env::panic(b"Method is either paused or ETH address is invalid");
         }
 
-        env::log(format!("{} Near tokens locked", attached_deposit).as_bytes());
+        ResultType::MigrateNearToEthereum {
+            amount: attached_deposit,
+            recipient: get_eth_address(eth_recipient)
+        }
     }
 
     #[payable]
