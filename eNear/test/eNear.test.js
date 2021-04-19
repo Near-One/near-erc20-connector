@@ -13,7 +13,7 @@ const NearProverMock = artifacts.require('NearProverMock');
 const eNear = artifacts.require('eNearMock');
 
 const SCHEMA = {
-  'Unlock': {
+  'MigrateNearToEthereum': {
     kind: 'struct', fields: [
       ['flag', 'u8'],
       ['amount', 'u128'],
@@ -87,7 +87,7 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
       let proof = require('./proof_template.json');
 
       const amount = ethers.utils.parseUnits('1', '24');
-      proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'Unlock', {
+      proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
         flag: 0,
         amount: amount.toString(),
         recipient: hexToBytes(bob),
