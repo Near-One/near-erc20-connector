@@ -31,6 +31,13 @@ contract eNear is ERC20, Bridge, AdminControlled {
         address recipient;
     }
 
+    /// @param _tokenName Name given to the token (can be admin updated)
+    /// @param _tokenSymbol Symbol given to the token (can be admin updated)
+    /// @param _nearConnector Near account ID of the near connector bridge
+    /// @param _prover Address of the prover contract on ETH
+    /// @param _minBlockAcceptanceHeight The contract will accept proofs from this block onwards
+    /// @param _admin Address that can make admin changes to the contract
+    /// @param _pausedFlags Flag settings which controls whether certain methods are paused or active
     constructor(
         string memory _tokenName,
         string memory _tokenSymbol,
