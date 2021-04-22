@@ -4,16 +4,12 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{UnorderedSet};
 use near_sdk::{
-    env, near_bindgen, AccountId, Balance, Promise, ext_contract, Gas
+    env, near_bindgen, AccountId, Balance, Promise, ext_contract, Gas, PanicOnDefault
 };
 
 use admin_controlled::{AdminControlled, Mask};
 
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-
-/// Price per 1 byte of storage from mainnet genesis config.
-const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
+near_sdk::setup_alloc!();
 
 pub use transfer_to_near_event::TransferToNearInitiatedEvent;
 use prover::*;
@@ -42,7 +38,7 @@ pub enum ResultType {
 }
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct NearBridge {
     /// The account of the prover that we can use to prove
     pub prover_account: AccountId,
@@ -55,12 +51,6 @@ pub struct NearBridge {
 
     /// Mask determining all paused functions
     paused: Mask,
-}
-
-impl Default for NearBridge {
-    fn default() -> Self {
-        env::panic(b"Contract should be initialized before usage.")
-    }
 }
 
 #[near_bindgen]
@@ -98,7 +88,10 @@ impl NearBridge {
         //  2) Panic and tell the user why
         let eth_recipient_clone = eth_recipient.clone();
         if self.is_paused(PAUSE_MIGRATE_TO_ETH) || is_valid_eth_address(eth_recipient_clone) == false {
-            Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
+            if attached_deposit > 0 {
+                Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
+            }
+
             env::panic(b"Method is either paused or ETH address is invalid");
         }
 
@@ -189,7 +182,7 @@ impl NearBridge {
         let current_storage = env::storage_usage();
 
         let required_deposit =
-            Balance::from(current_storage - initial_storage) * STORAGE_PRICE_PER_BYTE;
+            Balance::from(current_storage - initial_storage) * env::storage_byte_cost();
         (required_deposit, key.clone())
     }
 
