@@ -150,14 +150,18 @@ impl NearBridge {
         #[serializer(borsh)] amount: Balance,
         #[serializer(borsh)] proof: Proof,
     ) {
-        assert_self();
+        near_sdk::assert_self();
         assert!(verification_success, "Failed to verify the proof");
 
         let (required_deposit, event_key) = self.record_proof(&proof);
         let attached_deposit = env::attached_deposit();
         if attached_deposit < required_deposit {
             self.delete_proof(event_key);
-            Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
+
+            if attached_deposit > 0 {
+                Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
+            }
+
             env::panic(b"Attached deposit is not sufficient to record proof");
         }
 
@@ -168,7 +172,7 @@ impl NearBridge {
     fn record_proof(&mut self, proof: &Proof) -> (Balance, Vec<u8>) {
         // TODO: Instead of sending the full proof (clone only relevant parts of the Proof)
         //       log_index / receipt_index / header_data
-        assert_self();
+        near_sdk::assert_self();
         let initial_storage = env::storage_usage();
         let mut data = proof.log_index.try_to_vec().unwrap();
         data.extend(proof.receipt_index.try_to_vec().unwrap());
@@ -187,7 +191,7 @@ impl NearBridge {
     }
 
     fn delete_proof(&mut self, event_key: Vec<u8>) {
-        assert_self();
+        near_sdk::assert_self();
         self.used_events.remove(&event_key);
     }
 }
@@ -204,10 +208,6 @@ pub trait ExtNearBridge {
         #[serializer(borsh)] amount: Balance,
         #[serializer(borsh)] proof: Proof,
     ) -> Promise;
-}
-
-pub fn assert_self() {
-    assert_eq!(env::predecessor_account_id(), env::current_account_id());
 }
 
 admin_controlled::impl_admin_controlled!(NearBridge, paused);
