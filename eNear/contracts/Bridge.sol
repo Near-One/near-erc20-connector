@@ -17,7 +17,7 @@ contract Bridge {
     // If `minBlockAcceptanceHeight_` value is zero - proofs from block with any height are accepted.
     uint64 public minBlockAcceptanceHeight_;
 
-    // OutcomeReciptId -> Used
+    // OutcomeRecieptId -> Used
     mapping(bytes32 => bool) public usedProofs_;
 
     /// Parses the provided proof and consumes it if it's not already used.
