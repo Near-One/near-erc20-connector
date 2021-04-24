@@ -6,7 +6,7 @@ require('hardhat-gas-reporter');
 require('@nomiclabs/hardhat-solhint');
 
 const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const PRIVATE_KEY = process.env.ROPSTEN_PRIVATE_KEY;
 
 let nonDevelopmentNetworks = {}
 
@@ -15,49 +15,36 @@ if (PRIVATE_KEY) {
   nonDevelopmentNetworks = {
     mainnet: {
       url: `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}`,
-        accounts: [`0x${PRIVATE_KEY}`]
+        accounts: [`${PRIVATE_KEY}`]
     },
     ropsten: {
       url: `https://ropsten.infura.io/v3/${INFURA_PROJECT_ID}`,
-        accounts: [`0x${PRIVATE_KEY}`]
+        accounts: [`${PRIVATE_KEY}`]
     },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
-        accounts: [`0x${PRIVATE_KEY}`]
+        accounts: [`${PRIVATE_KEY}`]
     },
     kovan: {
       url: `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
-        accounts: [`0x${PRIVATE_KEY}`]
+        accounts: [`${PRIVATE_KEY}`]
     },
     sokol: {
       url: `https://sokol.poa.network`,
-      accounts: [`0x${PRIVATE_KEY}`]
+      accounts: [`${PRIVATE_KEY}`]
     }
   }
 }
 
 module.exports = {
   solidity: {
-    compilers: [
-      {
-        version: "0.7.6",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200
-          }
-        }
-      },
-      {
-        version: "0.6.12",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200
-          }
-        }
+    version: "0.6.12",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
       }
-    ]
+    }
   },
   gasReporter: {
     currency: 'USD',
