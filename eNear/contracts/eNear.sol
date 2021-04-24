@@ -10,7 +10,6 @@ import { Bridge, INearProver } from "./Bridge.sol";
 
 contract eNear is ERC20, Bridge, AdminControlled {
 
-    uint constant UNPAUSED_ALL = 0;
     uint constant PAUSE_FINALISE_FROM_NEAR = 1 << 0;
     uint constant PAUSE_TRANSFER_TO_NEAR = 1 << 1;
 
