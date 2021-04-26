@@ -10,12 +10,12 @@ contract Bridge {
     using Borsh for Borsh.Data;
     using ProofDecoder for Borsh.Data;
 
-    INearProver public prover_;
-    bytes public nearConnector_;
+    INearProver public prover;
+    bytes public nearConnector;
 
     /// Proofs from blocks that are below the acceptance height will be rejected.
-    // If `minBlockAcceptanceHeight_` value is zero - proofs from block with any height are accepted.
-    uint64 public minBlockAcceptanceHeight_;
+    // If `minBlockAcceptanceHeight` value is zero - proofs from block with any height are accepted.
+    uint64 public minBlockAcceptanceHeight;
 
     // OutcomeRecieptId -> Used
     mapping(bytes32 => bool) public usedProofs_;
@@ -26,8 +26,8 @@ contract Bridge {
     internal
     returns (ProofDecoder.ExecutionStatus memory result)
     {
-        require(proofBlockHeight >= minBlockAcceptanceHeight_, "Proof is from the ancient block");
-        require(prover_.proveOutcome(proofData, proofBlockHeight), "Proof should be valid");
+        require(proofBlockHeight >= minBlockAcceptanceHeight, "Proof is from the ancient block");
+        require(prover.proveOutcome(proofData, proofBlockHeight), "Proof should be valid");
 
         // Unpack the proof and extract the execution outcome.
         Borsh.Data memory borshData = Borsh.from(proofData);
@@ -39,7 +39,7 @@ contract Bridge {
         usedProofs_[receiptId] = true;
 
         require(keccak256(fullOutcomeProof.outcome_proof.outcome_with_id.outcome.executor_id)
-            == keccak256(nearConnector_),
+            == keccak256(nearConnector),
             "Can only unlock tokens from the linked proof producer on Near blockchain");
 
         result = fullOutcomeProof.outcome_proof.outcome_with_id.outcome.status;

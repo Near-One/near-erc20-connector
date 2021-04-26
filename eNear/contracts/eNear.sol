@@ -49,10 +49,10 @@ contract eNear is ERC20, Bridge, AdminControlled {
         require(_nearConnector.length > 0, "Invalid Near Token Factory address");
         require(address(_prover) != address(0), "Invalid Near prover address");
 
-        nearConnector_ = _nearConnector;
-        prover_ = _prover;
+        nearConnector = _nearConnector;
+        prover = _prover;
 
-        minBlockAcceptanceHeight_ = _minBlockAcceptanceHeight;
+        minBlockAcceptanceHeight = _minBlockAcceptanceHeight;
 
         // Match yocto Near
         _setupDecimals(24);
@@ -65,13 +65,13 @@ contract eNear is ERC20, Bridge, AdminControlled {
 
         _mint(result.recipient, result.amount);
 
-        emit NearToEthTransferFinalised(_msgSender(), result.amount, result.recipient);
+        emit NearToEthTransferFinalised(msg.sender, result.amount, result.recipient);
     }
 
     function transferToNear(uint256 _amount, string calldata _nearReceiverAccountId)
     external pausable (PAUSE_TRANSFER_TO_NEAR) {
-        _burn(_msgSender(), _amount);
-        emit TransferToNearInitiated(_msgSender(), _amount, _nearReceiverAccountId);
+        _burn(msg.sender, _amount);
+        emit TransferToNearInitiated(msg.sender, _amount, _nearReceiverAccountId);
     }
 
     function _decodeBridgeResult(bytes memory data) internal view returns(BridgeResult memory result) {

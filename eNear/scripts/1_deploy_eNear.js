@@ -1,4 +1,5 @@
 const prompt = require('prompt-sync')()
+// todo use commander instead of prompt
 
 async function main() {
   const [deployer] = await ethers.getSigners()

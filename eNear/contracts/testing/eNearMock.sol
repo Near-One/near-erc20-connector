@@ -22,8 +22,4 @@ contract eNearMock is eNear {
     function mintTo(address _recipient, uint256 _amount) external {
         _mint(_recipient, _amount);
     }
-
-    function burn(uint256 _amount) external {
-        _burn(_msgSender(), _amount);
-    }
 }

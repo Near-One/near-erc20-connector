@@ -47,6 +47,38 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
     )
   })
 
+  describe('Deployment', () => {
+    it('Reverts when near connector argument is empty', async () => {
+      await expectRevert(
+        eNear.new(
+          name,
+          symbol,
+          Buffer.from('', 'utf-8'),
+          this.proverMock.address,
+          '0',
+          eNearAdmin,
+          0
+        ),
+        "Invalid Near Token Factory address"
+      )
+    })
+
+    it('Reverts when prover is zero address', async () => {
+      await expectRevert(
+        eNear.new(
+          name,
+          symbol,
+          Buffer.from('near', 'utf-8'),
+          ZERO_ADDRESS,
+          '0',
+          eNearAdmin,
+          0
+        ),
+        "Invalid Near prover address"
+      )
+    })
+  })
+
   describe('transferToNear()', () => {
     it('Burns eNear when transferring to near', async () => {
       // check supply zero and balance zero
@@ -98,7 +130,57 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
       await this.token.finaliseNearToEthTransfer(borshifyOutcomeProof(proof), 1099);
 
       const newReceiverBalance = await this.token.balanceOf(bob);
-      expect(newReceiverBalance.sub(receiverBalance).toString()).to.be.equal(amount);
+      expect(newReceiverBalance.sub(receiverBalance).toString()).to.be.equal(amount.toString());
     });
+
+    it('Reverts when reusing proof event', async () => {
+      let proof = require('./proof_template.json');
+
+      const amount = ethers.utils.parseUnits('1', '24');
+      proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
+        flag: 0,
+        amount: amount.toString(),
+        recipient: hexToBytes(bob),
+      }).toString('base64');
+
+      await this.token.finaliseNearToEthTransfer(borshifyOutcomeProof(proof), 1099);
+
+      await expectRevert(
+        this.token.finaliseNearToEthTransfer(borshifyOutcomeProof(proof), 1099),
+        "The burn event proof cannot be reused"
+      )
+    })
+
+    it('Reverts when event comes from the wrong executor', async () => {
+      let proof = require('./proof_template_invalid_executor.json');
+
+      const amount = ethers.utils.parseUnits('1', '24');
+      proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
+        flag: 0,
+        amount: amount.toString(),
+        recipient: hexToBytes(bob),
+      }).toString('base64');
+
+      await expectRevert(
+        this.token.finaliseNearToEthTransfer(borshifyOutcomeProof(proof), 1099),
+        "Can only unlock tokens from the linked proof producer on Near blockchain"
+      )
+    })
+
+    it('Reverts if flag is not zero', async () => {
+      let proof = require('./proof_template.json');
+
+      const amount = ethers.utils.parseUnits('1', '24');
+      proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
+        flag: 1,
+        amount: amount.toString(),
+        recipient: hexToBytes(bob),
+      }).toString('base64');
+
+      await expectRevert(
+        this.token.finaliseNearToEthTransfer(borshifyOutcomeProof(proof), 1099),
+        "ERR_NOT_WITHDRAW_RESULT"
+      )
+    })
   })
 })

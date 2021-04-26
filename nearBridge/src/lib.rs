@@ -87,11 +87,7 @@ impl NearBridge {
         //  1) Return the attached deposit
         //  2) Panic and tell the user why
         let eth_recipient_clone = eth_recipient.clone();
-        if self.is_paused(PAUSE_MIGRATE_TO_ETH) || is_valid_eth_address(eth_recipient_clone) == false {
-            if attached_deposit > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
-            }
-
+        if self.is_paused(PAUSE_MIGRATE_TO_ETH) || !is_valid_eth_address(eth_recipient_clone) {
             env::panic(b"Method is either paused or ETH address is invalid");
         }
 
@@ -153,15 +149,8 @@ impl NearBridge {
         near_sdk::assert_self();
         assert!(verification_success, "Failed to verify the proof");
 
-        let (required_deposit, event_key) = self.record_proof(&proof);
-        let attached_deposit = env::attached_deposit();
-        if attached_deposit < required_deposit {
-            self.delete_proof(event_key);
-
-            if attached_deposit > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(attached_deposit);
-            }
-
+        let required_deposit = self.record_proof(&proof);
+        if env::attached_deposit() < required_deposit {
             env::panic(b"Attached deposit is not sufficient to record proof");
         }
 
@@ -169,7 +158,7 @@ impl NearBridge {
     }
 
     /// Record proof to make sure it is not re-used later for anther deposit.
-    fn record_proof(&mut self, proof: &Proof) -> (Balance, Vec<u8>) {
+    fn record_proof(&mut self, proof: &Proof) -> Balance {
         // TODO: Instead of sending the full proof (clone only relevant parts of the Proof)
         //       log_index / receipt_index / header_data
         near_sdk::assert_self();
@@ -187,12 +176,8 @@ impl NearBridge {
 
         let required_deposit =
             Balance::from(current_storage - initial_storage) * env::storage_byte_cost();
-        (required_deposit, key.clone())
-    }
 
-    fn delete_proof(&mut self, event_key: Vec<u8>) {
-        near_sdk::assert_self();
-        self.used_events.remove(&event_key);
+        required_deposit
     }
 }
 
