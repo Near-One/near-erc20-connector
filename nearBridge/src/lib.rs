@@ -299,7 +299,7 @@ mod tests {
             attached_deposit: deposit_amount,
         );
 
-        contract.migrate_to_ethereum(alice_eth_address())
+        contract.migrate_to_ethereum(alice_eth_address());
     }
 
     #[test]
@@ -312,7 +312,7 @@ mod tests {
             e_near_eth_address()
         );
 
-        contract.migrate_to_ethereum(alice_eth_address())
+        contract.migrate_to_ethereum(alice_eth_address());
     }
 
     #[test]
@@ -334,7 +334,7 @@ mod tests {
             attached_deposit: deposit_amount,
         );
 
-        contract.migrate_to_ethereum(alice_eth_address())
+        contract.migrate_to_ethereum(alice_eth_address());
     }
 
     #[test]
@@ -347,7 +347,7 @@ mod tests {
             e_near_eth_address()
         );
 
-        contract.migrate_to_ethereum(invalid_eth_address())
+        contract.migrate_to_ethereum(invalid_eth_address());
     }
 
     #[test]
@@ -362,7 +362,7 @@ mod tests {
 
         contract.set_paused(PAUSE_ETH_TO_NEAR_TRANSFER);
 
-        contract.finalise_eth_to_near_transfer(sample_proof())
+        contract.finalise_eth_to_near_transfer(sample_proof());
     }
 
     #[test]
@@ -375,7 +375,7 @@ mod tests {
             e_near_eth_address()
         );
 
-        contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()))
+        contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()));
     }
 
     #[test]
@@ -388,7 +388,7 @@ mod tests {
             e_near_eth_address()
         );
 
-        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()))
+        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
     }
 
     #[test]
