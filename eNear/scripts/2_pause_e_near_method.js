@@ -1,31 +1,29 @@
-const prompt = require('prompt-sync')()
-const adminControlledABI = require('../artifacts/contracts/AdminControlled.sol/AdminControlled.json').abi
+const adminControlledABI = require('../artifacts/contracts/eNear.sol/eNear.json').abi
 
-async function main() {
-  const [deployer] = await ethers.getSigners()
-  const deployerAddress = await deployer.getAddress()
-  console.log(
-    "Pause eNear method with the account:",
-    deployerAddress
-  )
+task("pause-enear", "Pauses any method on a deployed eNear contract")
+  .addParam('eNearContractAddress', 'Address of deployed eNear contract')
+  .addParam('pausedFlags', 'Bitwise value specifying which functions are paused')
+  .setAction(async taskArgs => {
+    const {
+      eNearContractAddress,
+      pausedFlags
+    } = taskArgs
 
-  const flags = prompt('Paused flag values? ')
-  const eNearProxyAddress = prompt('eNear proxy address? ')
+    const [deployer] = await ethers.getSigners()
+    const deployerAddress = await deployer.getAddress()
+    console.log(
+      "Pause eNear method(s) with the account:",
+      deployerAddress
+    )
 
-  const eNear = new ethers.Contract(
-    eNearProxyAddress,
-    adminControlledABI,
-    deployer
-  )
+    const eNear = new ethers.Contract(
+      eNearContractAddress,
+      adminControlledABI,
+      deployer
+    )
 
-  await eNear.adminPause(flags)
+    await eNear.adminPause(pausedFlags)
 
-  console.log('Done')
-}
+    console.log('Done')
+  })
 
-main()
-  .then(() => process.exit(0))
-  .catch(error => {
-    console.error(error);
-    process.exit(1);
-  });
