@@ -23,7 +23,11 @@ impl TransferToNearInitiatedEvent {
 
     /// Parse raw log entry data.
     pub fn from_log_entry_data(data: &[u8]) -> Self {
-        let event = EthEvent::from_log_entry_data("TransferToNearInitiated", TransferToNearInitiatedEvent::event_params(), data);
+        let event = EthEvent::from_log_entry_data(
+            "TransferToNearInitiated",
+            TransferToNearInitiatedEvent::event_params(),
+            data,
+        );
         let sender = event.log.params[0].value.clone().to_address().unwrap().0;
         let sender = (&sender).encode_hex::<String>();
         let amount = event.log.params[1]
@@ -46,9 +50,7 @@ impl TransferToNearInitiatedEvent {
             "TransferToNearInitiated",
             TransferToNearInitiatedEvent::event_params(),
             self.e_near_address,
-            vec![
-                hex::decode(self.sender.clone()).unwrap(),
-            ],
+            vec![hex::decode(self.sender.clone()).unwrap()],
             vec![
                 Token::Uint(self.amount.into()),
                 Token::String(self.recipient.clone()),
