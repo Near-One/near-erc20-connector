@@ -10,6 +10,8 @@ contract Bridge {
     using Borsh for Borsh.Data;
     using ProofDecoder for Borsh.Data;
 
+    event ConsumedProof(bytes32 indexed _receiptId);
+
     INearProver public prover;
     bytes public nearConnector;
 
@@ -45,5 +47,7 @@ contract Bridge {
         result = fullOutcomeProof.outcome_proof.outcome_with_id.outcome.status;
         require(!result.failed, "Cannot use failed execution outcome for unlocking the tokens");
         require(!result.unknown, "Cannot use unknown execution outcome for unlocking the tokens");
+
+        emit ConsumedProof(receiptId);
     }
 }
