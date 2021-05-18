@@ -20,7 +20,7 @@ contract Bridge {
     uint64 public minBlockAcceptanceHeight;
 
     // OutcomeRecieptId -> Used
-    mapping(bytes32 => bool) public usedProofs_;
+    mapping(bytes32 => bool) public usedProofs;
 
     /// Parses the provided proof and consumes it if it's not already used.
     /// The consumed event cannot be reused for future calls.
@@ -37,8 +37,8 @@ contract Bridge {
         require(borshData.finished(), "Argument should be exact borsh serialization");
 
         bytes32 receiptId = fullOutcomeProof.outcome_proof.outcome_with_id.outcome.receipt_ids[0];
-        require(!usedProofs_[receiptId], "The burn event proof cannot be reused");
-        usedProofs_[receiptId] = true;
+        require(!usedProofs[receiptId], "The burn event proof cannot be reused");
+        usedProofs[receiptId] = true;
 
         require(keccak256(fullOutcomeProof.outcome_proof.outcome_with_id.outcome.executor_id)
             == keccak256(nearConnector),
