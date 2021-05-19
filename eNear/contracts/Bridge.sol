@@ -28,12 +28,17 @@ contract Bridge {
     internal
     returns (ProofDecoder.ExecutionStatus memory result)
     {
-        require(proofBlockHeight >= minBlockAcceptanceHeight, "Proof is from the ancient block");
         require(prover.proveOutcome(proofData, proofBlockHeight), "Proof should be valid");
 
         // Unpack the proof and extract the execution outcome.
         Borsh.Data memory borshData = Borsh.from(proofData);
         ProofDecoder.FullOutcomeProof memory fullOutcomeProof = borshData.decodeFullOutcomeProof();
+
+        require(
+            fullOutcomeProof.block_header_lite.inner_lite.height >= minBlockAcceptanceHeight,
+            "Proof is from the ancient block"
+        );
+
         require(borshData.finished(), "Argument should be exact borsh serialization");
 
         bytes32 receiptId = fullOutcomeProof.outcome_proof.outcome_with_id.outcome.receipt_ids[0];
