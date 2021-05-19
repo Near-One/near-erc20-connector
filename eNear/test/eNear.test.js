@@ -12,6 +12,8 @@ const {ethers} = require('ethers')
 const NearProverMock = artifacts.require('NearProverMock');
 const eNear = artifacts.require('eNearMock');
 
+const proof_template = require('./proof_template.json');
+
 const SCHEMA = {
   'MigrateNearToEthereum': {
     kind: 'struct', fields: [
@@ -84,7 +86,7 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
 
   describe('finaliseNearToEthTransfer()', () => {
     it('Mints eNear after bridging Near', async () => {
-      let proof = require('./proof_template.json');
+      let proof = Object.assign({}, proof_template);
 
       const amount = ethers.utils.parseUnits('1', '24');
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
@@ -102,7 +104,7 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
     });
 
     it('Reverts when reusing proof event', async () => {
-      let proof = require('./proof_template.json');
+      let proof = Object.assign({}, proof_template);
 
       const amount = ethers.utils.parseUnits('1', '24');
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
@@ -120,7 +122,8 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
     })
 
     it('Reverts when event comes from the wrong executor', async () => {
-      let proof = require('./proof_template_invalid_executor.json');
+      let proof = Object.assign({}, proof_template);
+      proof.outcome_proof.outcome.executor_id = 'eNearBridgeInvalid'
 
       const amount = ethers.utils.parseUnits('1', '24');
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
@@ -136,11 +139,12 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
     })
 
     it('Reverts if flag is not zero', async () => {
-      let proof = require('./proof_template.json');
+      let proof = Object.assign({}, proof_template);
 
       const amount = ethers.utils.parseUnits('1', '24');
+      proof.outcome_proof.outcome.executor_id = 'eNearBridge'
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
-        flag: 1,
+        flag: 3,
         amount: amount.toString(),
         recipient: hexToBytes(bob),
       }).toString('base64');
