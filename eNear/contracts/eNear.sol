@@ -20,7 +20,6 @@ contract eNear is ERC20, Bridge, AdminControlled {
     );
 
     event NearToEthTransferFinalised (
-        address indexed sender,
         uint128 amount,
         address indexed recipient
     );
@@ -46,9 +45,6 @@ contract eNear is ERC20, Bridge, AdminControlled {
         address _admin,
         uint256 _pausedFlags
     ) public ERC20(_tokenName, _tokenSymbol) AdminControlled(_admin, _pausedFlags) {
-        require(_nearConnector.length > 0, "Invalid Near Token Factory address");
-        require(address(_prover) != address(0), "Invalid Near prover address");
-
         nearConnector = _nearConnector;
         prover = _prover;
 
@@ -65,7 +61,7 @@ contract eNear is ERC20, Bridge, AdminControlled {
 
         _mint(result.recipient, result.amount);
 
-        emit NearToEthTransferFinalised(msg.sender, result.amount, result.recipient);
+        emit NearToEthTransferFinalised(result.amount, result.recipient);
     }
 
     function transferToNear(uint256 _amount, string calldata _nearReceiverAccountId)

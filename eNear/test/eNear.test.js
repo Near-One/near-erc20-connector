@@ -26,7 +26,7 @@ const UNPAUSED_ALL = 0
 const PAUSED_FINALISE_FROM_NEAR = 1 << 0
 const PAUSED_XFER_TO_NEAR = 1 << 1
 
-contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, alice, bob, ...otherAccounts]) {
+contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
 
   const name = 'eNear';
   const symbol = 'eNear';
@@ -34,7 +34,7 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
   const ONE_HUNDRED_TOKENS = new BN('100').mul(new BN('10').pow(new BN('24')))
 
   beforeEach(async () => {
-    this.proverMock = await NearProverMock.new()
+    this.proverMock = await NearProverMock.new({from: deployer})
 
     this.token = await eNear.new(
       name,
@@ -43,40 +43,9 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
       this.proverMock.address,
       '0',
       eNearAdmin,
-      0
+      0,
+      {from: deployer}
     )
-  })
-
-  describe('Deployment', () => {
-    it('Reverts when near connector argument is empty', async () => {
-      await expectRevert(
-        eNear.new(
-          name,
-          symbol,
-          Buffer.from('', 'utf-8'),
-          this.proverMock.address,
-          '0',
-          eNearAdmin,
-          0
-        ),
-        "Invalid Near Token Factory address"
-      )
-    })
-
-    it('Reverts when prover is zero address', async () => {
-      await expectRevert(
-        eNear.new(
-          name,
-          symbol,
-          Buffer.from('near', 'utf-8'),
-          ZERO_ADDRESS,
-          '0',
-          eNearAdmin,
-          0
-        ),
-        "Invalid Near prover address"
-      )
-    })
   })
 
   describe('transferToNear()', () => {
@@ -106,7 +75,6 @@ contract('eNear bridging', function ([deployer, proxyAdmin, prover, eNearAdmin, 
       // check event emitted
       await expectEvent(
         receipt, 'TransferToNearInitiated', {
-          sender: alice,
           amount: ONE_HUNDRED_TOKENS,
           accountId: 'vince.near'
         }
