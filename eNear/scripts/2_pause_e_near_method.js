@@ -1,4 +1,8 @@
-const adminControlledABI = require('../artifacts/contracts/eNear.sol/eNear.json').abi
+let adminControlledABI;
+
+try {
+    adminControlledABI = require('../artifacts/contracts/eNear.sol/eNear.json').abi
+} catch (e) {}
 
 task("pause-enear", "Pauses any method on a deployed eNear contract")
   .addParam('eNearContractAddress', 'Address of deployed eNear contract')
@@ -8,6 +12,11 @@ task("pause-enear", "Pauses any method on a deployed eNear contract")
       eNearContractAddress,
       pausedFlags
     } = taskArgs
+
+    if (adminControlledABI === undefined) {
+      console.log("Compile contract first with `yarn compile`");
+      return;
+    }
 
     const [deployer] = await ethers.getSigners()
     const deployerAddress = await deployer.getAddress()
