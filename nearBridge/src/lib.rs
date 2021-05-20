@@ -75,6 +75,8 @@ impl NearBridge {
     #[result_serializer(borsh)]
     // todo: how much GAS is required to execute this method with sending the tokens back and ensure we have enough
     pub fn migrate_to_ethereum(&mut self, eth_recipient: String) -> ResultType {
+        self.check_not_paused(PAUSE_MIGRATE_TO_ETH);
+
         // Predecessor must attach Near to migrate to ETH
         let attached_deposit = env::attached_deposit();
         if attached_deposit == 0 {
@@ -85,8 +87,8 @@ impl NearBridge {
         //  1) Return the attached deposit
         //  2) Panic and tell the user why
         let eth_recipient_clone = eth_recipient.clone();
-        if self.is_paused(PAUSE_MIGRATE_TO_ETH) || !is_valid_eth_address(eth_recipient_clone) {
-            env::panic(b"Method is either paused or ETH address is invalid");
+        if !is_valid_eth_address(eth_recipient_clone) {
+            env::panic(b"ETH address is invalid");
         }
 
         ResultType::MigrateNearToEthereum {

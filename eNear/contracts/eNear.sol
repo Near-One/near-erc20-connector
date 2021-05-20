@@ -64,13 +64,13 @@ contract eNear is ERC20, Bridge, AdminControlled {
         emit NearToEthTransferFinalised(result.amount, result.recipient);
     }
 
-    function transferToNear(uint256 _amount, string calldata _nearReceiverAccountId)
+    function transferToNear(uint256 _amount, string memory _nearReceiverAccountId)
     external pausable (PAUSE_TRANSFER_TO_NEAR) {
         _burn(msg.sender, _amount);
         emit TransferToNearInitiated(msg.sender, _amount, _nearReceiverAccountId);
     }
 
-    function _decodeBridgeResult(bytes memory data) internal view returns(BridgeResult memory result) {
+    function _decodeBridgeResult(bytes memory data) internal pure returns(BridgeResult memory result) {
         Borsh.Data memory borshData = Borsh.from(data);
         uint8 flag = borshData.decodeU8();
         require(flag == 0, "ERR_NOT_WITHDRAW_RESULT");

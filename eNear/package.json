@@ -2,9 +2,9 @@
   "name": "enear",
   "version": "1.0.0",
   "scripts": {
-    "compile": "npx hardhat compile",
-    "coverage": "npx hardhat coverage",
-    "test": "npx hardhat test"
+    "compile": "hardhat compile",
+    "coverage": "hardhat coverage",
+    "test": "hardhat test"
   },
   "author": "Vincent",
   "license": "MIT",

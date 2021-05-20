@@ -86,7 +86,7 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
 
   describe('finaliseNearToEthTransfer()', () => {
     it('Mints eNear after bridging Near', async () => {
-      let proof = Object.assign({}, proof_template);
+      let proof = JSON.parse(JSON.stringify(proof_template));
 
       const amount = ethers.utils.parseUnits('1', '24');
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
@@ -104,7 +104,7 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
     });
 
     it('Reverts when reusing proof event', async () => {
-      let proof = Object.assign({}, proof_template);
+      let proof = JSON.parse(JSON.stringify(proof_template));
 
       const amount = ethers.utils.parseUnits('1', '24');
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
@@ -122,7 +122,7 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
     })
 
     it('Reverts when event comes from the wrong executor', async () => {
-      let proof = Object.assign({}, proof_template);
+      let proof = JSON.parse(JSON.stringify(proof_template));
       proof.outcome_proof.outcome.executor_id = 'eNearBridgeInvalid'
 
       const amount = ethers.utils.parseUnits('1', '24');
@@ -139,10 +139,9 @@ contract('eNear bridging', function ([deployer, eNearAdmin, alice, bob]) {
     })
 
     it('Reverts if flag is not zero', async () => {
-      let proof = Object.assign({}, proof_template);
+      let proof = JSON.parse(JSON.stringify(proof_template));
 
       const amount = ethers.utils.parseUnits('1', '24');
-      proof.outcome_proof.outcome.executor_id = 'eNearBridge'
       proof.outcome_proof.outcome.status.SuccessValue = serialize(SCHEMA, 'MigrateNearToEthereum', {
         flag: 3,
         amount: amount.toString(),
