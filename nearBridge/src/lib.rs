@@ -9,7 +9,7 @@ use admin_controlled::{AdminControlled, Mask};
 
 near_sdk::setup_alloc!();
 
-use prover::*;
+use prover::ext_prover;
 pub use prover::{get_eth_address, is_valid_eth_address, EthAddress, Proof};
 pub use transfer_to_near_event::TransferToNearInitiatedEvent;
 
