@@ -38,6 +38,5 @@ task("deploy-enear", "Deploys eNear to the desired network")
     await eNear.deployed()
 
     console.log('eNear deployed at', eNear.address)
-
     console.log('Done')
   })
