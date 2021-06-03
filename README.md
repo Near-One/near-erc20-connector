@@ -11,6 +11,12 @@ To install the dependencies:
 yarn
 ```
 
+Compile contracts using:
+
+```
+yarn compile
+```
+
 To run tests:
 
 ```
@@ -28,7 +34,7 @@ yarn coverage
 The eNear contract can be deployed with the following command:
 
 ```
-npx hardhat deploy-enear
+yarn hardhat deploy-enear
 ```
 
 This command takes the following command line arguments:

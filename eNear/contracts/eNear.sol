@@ -44,12 +44,7 @@ contract eNear is ERC20, Bridge, AdminControlled {
         uint64 _minBlockAcceptanceHeight,
         address _admin,
         uint256 _pausedFlags
-    ) public ERC20(_tokenName, _tokenSymbol) AdminControlled(_admin, _pausedFlags) {
-        nearConnector = _nearConnector;
-        prover = _prover;
-
-        minBlockAcceptanceHeight = _minBlockAcceptanceHeight;
-
+    ) public ERC20(_tokenName, _tokenSymbol) AdminControlled(_admin, _pausedFlags) Bridge(_prover, _nearConnector, _minBlockAcceptanceHeight) {
         // Match yocto Near
         _setupDecimals(24);
     }
