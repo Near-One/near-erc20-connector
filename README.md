@@ -3,7 +3,13 @@ A connector for the Rainbow Bridge that allows sending $NEAR to Ethereum which i
 
 ## eNear Ethereum smart contracts
 
-This is a hardhat + yarn project.
+Go to eNear directory:
+
+```
+cd eNear
+```
+
+This is a Hardhat + yarn project.
 
 To install the dependencies:
 
