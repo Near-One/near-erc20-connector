@@ -72,5 +72,6 @@ contract eNear is ERC20, Bridge, AdminControlled {
         result.amount = borshData.decodeU128();
         bytes20 recipient = borshData.decodeBytes20();
         result.recipient = address(uint160(recipient));
+        require(borshData.finished(), "Parse error: EOI expected");
     }
 }
