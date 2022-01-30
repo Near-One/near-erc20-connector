@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.6.12;
+pragma solidity ^0.8;
 
-import "rainbow-bridge/contracts/eth/nearprover/contracts/INearProver.sol";
+import "rainbow-bridge-sol/nearprover/contracts/INearProver.sol";
 import { eNear } from "../eNear.sol";
 
 contract eNearMock is eNear {

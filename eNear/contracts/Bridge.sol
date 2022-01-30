@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.6.12;
+pragma solidity ^0.8;
 
-import "rainbow-bridge/contracts/eth/nearprover/contracts/INearProver.sol";
-import "rainbow-bridge/contracts/eth/nearprover/contracts/ProofDecoder.sol";
-import "rainbow-bridge/contracts/eth/nearbridge/contracts/Borsh.sol";
+import "rainbow-bridge-sol/nearprover/contracts/INearProver.sol";
+import "rainbow-bridge-sol/nearprover/contracts/ProofDecoder.sol";
+import "rainbow-bridge-sol/nearbridge/contracts/Borsh.sol";
 
 contract Bridge {
     using Borsh for Borsh.Data;
@@ -39,13 +39,12 @@ contract Bridge {
         // Unpack the proof and extract the execution outcome.
         Borsh.Data memory borshData = Borsh.from(proofData);
         ProofDecoder.FullOutcomeProof memory fullOutcomeProof = borshData.decodeFullOutcomeProof();
+        borshData.done();
 
         require(
             fullOutcomeProof.block_header_lite.inner_lite.height >= minBlockAcceptanceHeight,
             "Proof is from the ancient block"
         );
-
-        require(borshData.finished(), "Argument should be exact borsh serialization");
 
         bytes32 receiptId = fullOutcomeProof.outcome_proof.outcome_with_id.outcome.receipt_ids[0];
         require(!usedProofs[receiptId], "The burn event proof cannot be reused");
