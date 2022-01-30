@@ -22,7 +22,7 @@ contract Bridge {
     // OutcomeRecieptId -> Used
     mapping(bytes32 => bool) public usedProofs;
 
-    constructor(INearProver _prover, bytes memory _nearConnector, uint64 _minBlockAcceptanceHeight) public {
+    constructor(INearProver _prover, bytes memory _nearConnector, uint64 _minBlockAcceptanceHeight) {
         prover = _prover;
         nearConnector = _nearConnector;
         minBlockAcceptanceHeight = _minBlockAcceptanceHeight;
@@ -31,8 +31,8 @@ contract Bridge {
     /// Parses the provided proof and consumes it if it's not already used.
     /// The consumed event cannot be reused for future calls.
     function _parseAndConsumeProof(bytes memory proofData, uint64 proofBlockHeight)
-    internal
-    returns (ProofDecoder.ExecutionStatus memory result)
+        internal
+        returns (ProofDecoder.ExecutionStatus memory result)
     {
         require(prover.proveOutcome(proofData, proofBlockHeight), "Proof should be valid");
 

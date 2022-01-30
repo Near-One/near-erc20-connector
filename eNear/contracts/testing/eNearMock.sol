@@ -15,8 +15,8 @@ contract eNearMock is eNear {
         uint64 _minBlockAcceptanceHeight,
         address _admin,
         uint256 _pausedFlags
-    ) public eNear(_tokenName, _tokenSymbol, _nearConnector, _prover, _minBlockAcceptanceHeight, _admin, _pausedFlags) {
-
+    ) eNear(_tokenName, _tokenSymbol, _nearConnector, _prover, _minBlockAcceptanceHeight, _admin, _pausedFlags)
+    {
     }
 
     function mintTo(address _recipient, uint256 _amount) external {

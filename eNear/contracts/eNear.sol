@@ -45,7 +45,11 @@ contract eNear is ERC20, Bridge, AdminControlled {
         uint64 _minBlockAcceptanceHeight,
         address _admin,
         uint256 _pausedFlags
-    ) public ERC20(_tokenName, _tokenSymbol) AdminControlled(_admin, _pausedFlags) Bridge(_prover, _nearConnector, _minBlockAcceptanceHeight) {
+    )
+        ERC20(_tokenName, _tokenSymbol)
+        AdminControlled(_admin, _pausedFlags)
+        Bridge(_prover, _nearConnector, _minBlockAcceptanceHeight)
+    {
     }
 
     function decimals() public view virtual override returns (uint8) {
@@ -54,7 +58,9 @@ contract eNear is ERC20, Bridge, AdminControlled {
     }
 
     function finaliseNearToEthTransfer(bytes memory proofData, uint64 proofBlockHeight)
-    external pausable (PAUSE_FINALISE_FROM_NEAR) {
+        external
+        pausable (PAUSE_FINALISE_FROM_NEAR)
+    {
         ProofDecoder.ExecutionStatus memory status = _parseAndConsumeProof(proofData, proofBlockHeight);
         BridgeResult memory result = _decodeBridgeResult(status.successValue);
 
@@ -64,7 +70,9 @@ contract eNear is ERC20, Bridge, AdminControlled {
     }
 
     function transferToNear(uint256 _amount, string memory _nearReceiverAccountId)
-    external pausable (PAUSE_TRANSFER_TO_NEAR) {
+        external
+        pausable (PAUSE_TRANSFER_TO_NEAR)
+    {
         _burn(msg.sender, _amount);
         emit TransferToNearInitiated(msg.sender, _amount, _nearReceiverAccountId);
     }
