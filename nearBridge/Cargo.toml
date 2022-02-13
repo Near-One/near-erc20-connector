@@ -18,7 +18,7 @@ serde_json = "1.0.64"
 uint = { version = "0.8.3", default-features = false }
 rlp = "0.4.2"
 hex = "0.4.2"
-near-plugins = { git = "https://github.com/mfornet/near-plugins", rev="9d17246b" }
+near-plugins = { git = "https://github.com/aurora-is-near/near-plugins", rev="9d17246b" }
 
 [profile.release]
 codegen-units = 1
