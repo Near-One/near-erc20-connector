@@ -8,9 +8,9 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = "4.0.0-pre.6"
-near-contract-standards = "4.0.0-pre.6"
-eth-types =  { git = "https://github.com/near/rainbow-bridge", rev = "88f4fb5" }
+near-sdk = "4.0.0-pre.7"
+near-contract-standards = "4.0.0-pre.7"
+eth-types =  { git = "https://github.com/near/rainbow-bridge", rev = "ae2077c" }
 tiny-keccak = "1.4.0"
 ethabi = "12.0.0"
 serde = { version = "1.0.70", features = ["derive"] }

@@ -378,7 +378,7 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/near/rainbow-bridge?rev=88f4fb5#88f4fb50103ceebc177b831b5df8d2bf3bf228bc"
+source = "git+https://github.com/near/rainbow-bridge?rev=ae2077c#ae2077ccd81438b4eea366cdab984ed9fe6fdb7d"
 dependencies = [
  "borsh",
  "derive_more",
