@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.6.12;
+pragma solidity ^0.8;
 
-import "rainbow-bridge/contracts/eth/nearprover/contracts/ProofDecoder.sol";
-import "rainbow-bridge/contracts/eth/nearbridge/contracts/Borsh.sol";
-import "rainbow-bridge/contracts/eth/nearbridge/contracts/AdminControlled.sol";
+import "rainbow-bridge-sol/nearprover/contracts/ProofDecoder.sol";
+import "rainbow-bridge-sol/nearbridge/contracts/Borsh.sol";
+import "rainbow-bridge-sol/nearbridge/contracts/AdminControlled.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Bridge, INearProver } from "./Bridge.sol";
 
 contract eNear is ERC20, Bridge, AdminControlled {
+    using Borsh for Borsh.Data;
 
     uint constant PAUSE_FINALISE_FROM_NEAR = 1 << 0;
     uint constant PAUSE_TRANSFER_TO_NEAR = 1 << 1;
@@ -44,13 +45,22 @@ contract eNear is ERC20, Bridge, AdminControlled {
         uint64 _minBlockAcceptanceHeight,
         address _admin,
         uint256 _pausedFlags
-    ) public ERC20(_tokenName, _tokenSymbol) AdminControlled(_admin, _pausedFlags) Bridge(_prover, _nearConnector, _minBlockAcceptanceHeight) {
+    )
+        ERC20(_tokenName, _tokenSymbol)
+        AdminControlled(_admin, _pausedFlags)
+        Bridge(_prover, _nearConnector, _minBlockAcceptanceHeight)
+    {
+    }
+
+    function decimals() public view virtual override returns (uint8) {
         // Match yocto Near
-        _setupDecimals(24);
+        return 24;
     }
 
     function finaliseNearToEthTransfer(bytes memory proofData, uint64 proofBlockHeight)
-    external pausable (PAUSE_FINALISE_FROM_NEAR) {
+        external
+        pausable (PAUSE_FINALISE_FROM_NEAR)
+    {
         ProofDecoder.ExecutionStatus memory status = _parseAndConsumeProof(proofData, proofBlockHeight);
         BridgeResult memory result = _decodeBridgeResult(status.successValue);
 
@@ -60,7 +70,9 @@ contract eNear is ERC20, Bridge, AdminControlled {
     }
 
     function transferToNear(uint256 _amount, string memory _nearReceiverAccountId)
-    external pausable (PAUSE_TRANSFER_TO_NEAR) {
+        external
+        pausable (PAUSE_TRANSFER_TO_NEAR)
+    {
         _burn(msg.sender, _amount);
         emit TransferToNearInitiated(msg.sender, _amount, _nearReceiverAccountId);
     }
@@ -72,6 +84,6 @@ contract eNear is ERC20, Bridge, AdminControlled {
         result.amount = borshData.decodeU128();
         bytes20 recipient = borshData.decodeBytes20();
         result.recipient = address(uint160(recipient));
-        require(borshData.finished(), "Parse error: EOI expected");
+        borshData.done();
     }
 }
