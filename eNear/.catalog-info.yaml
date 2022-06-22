@@ -1,0 +1,21 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: enear-token-on-ethereum
+  title: eNEAR token on Ethereum
+  tags:
+    - contract
+    - ethereum
+  links: []
+  annotations:
+    aurora.dev/security-tier: "1"
+spec:
+  owner: bridge-team
+  type: contract
+  lifecycle: production
+  system: bridge-connectors
+  deployedAt:
+    - contract:ethereum/mainnet/0x85f17cf997934a597031b2e18a9ab6ebd4b9f6a4
+  interactsWith: []
+  subcomponentOf: near-erc20-connector

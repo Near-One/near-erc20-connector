@@ -1,0 +1,10 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: near-erc20-connector
+  description: Public near-erc20-connector repository
+spec:
+  targets:
+    - ./eNear/.catalog-info.yaml
+    - ./nearBridge/.catalog-info.yaml
