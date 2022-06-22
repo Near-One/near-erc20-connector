@@ -2,8 +2,8 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: enear-locker
-  title: eNEAR Locker
+  name: enear-locker-on-near
+  title: eNEAR Locker on NEAR
   tags:
     - contract
     - near
@@ -17,6 +17,5 @@ spec:
   system: bridge-connectors
   deployedAt:
     - contract:near/mainnet/e-near.near
-  interactsWith:
-    - admin:near/mainnet/rainbowbridge.sputnik-dao.near
+  interactsWith: []
   subcomponentOf: near-erc20-connector

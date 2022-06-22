@@ -2,8 +2,8 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: enear-minter
-  title: eNEAR Minter
+  name: enear-token-on-ethereum
+  title: eNEAR token on Ethereum
   tags:
     - contract
     - ethereum
