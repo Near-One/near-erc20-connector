@@ -38,6 +38,12 @@ pub enum ResultType {
     },
 }
 
+#[derive(Debug, BorshSerialize, BorshDeserialize, Clone, PartialEq, Eq)]
+pub enum FeeType {
+    Deposit,
+    Withdraw,
+}
+
 #[derive(Default, BorshDeserialize, BorshSerialize, Debug, Clone, Copy, PartialEq)]
 pub struct TransferFeePercentage {
     near_to_eth: u128,
@@ -68,14 +74,23 @@ pub struct NearBridge {
     /// Fee percentage for both side transfer
     pub transfer_fee_percentage: TransferFeePercentage,
 
-    /// Fee bounds for transfer
-    pub transfer_fee_bounds: FeeBounds,
+    /// deposit fee bounds for transfer near -> eth
+    pub deposit_fee_bounds: FeeBounds,
+
+    /// withdraw fee bounds for transfer eth -> near
+    pub withdraw_fee_bounds: FeeBounds,
+
+    /// Owner's account id.
+    pub owner_id: AccountId,
+
+    // Cumulative fee amount for near -> eth and eth -> near transfers
+    pub cumulative_fee_amount: u128,
 }
 
 #[near_bindgen]
 impl NearBridge {
     #[init]
-    pub fn new(prover_account: AccountId, e_near_address: String) -> Self {
+    pub fn new(prover_account: AccountId, e_near_address: String, owner_id: AccountId) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
             prover_account,
@@ -86,11 +101,22 @@ impl NearBridge {
                 near_to_eth: 0,
                 eth_to_near: 0,
             },
-            transfer_fee_bounds: FeeBounds {
+            deposit_fee_bounds: FeeBounds {
                 lower_bound: 0,
                 upper_bound: 0,
             },
+            withdraw_fee_bounds: FeeBounds {
+                lower_bound: 0,
+                upper_bound: 0,
+            },
+            owner_id,
+            cumulative_fee_amount: 0,
         }
+    }
+
+    fn is_owner(&self) -> bool {
+        self.owner_id == env::predecessor_account_id()
+            || env::current_account_id() == env::predecessor_account_id()
     }
 
     /// Deposit NEAR for bridging from the predecessor account ID
@@ -124,11 +150,9 @@ impl NearBridge {
 
         let mut fee_amount =
             (attached_deposit * transfer_fee_percentage.near_to_eth) / FEE_DECIMAL_PRECISION;
-        fee_amount = self.check_fee_bounds(fee_amount);
+        fee_amount = self.check_fee_bounds(fee_amount, FeeType::Deposit);
         let amount_to_transfer = attached_deposit - fee_amount;
-
-        // transfer near -> eth fee amount to contract account
-        Promise::new(env::current_account_id()).transfer(fee_amount);
+        self.cumulative_fee_amount += fee_amount;
 
         ResultType::MigrateNearToEthereum {
             amount: amount_to_transfer,
@@ -137,20 +161,40 @@ impl NearBridge {
     }
 
     pub fn set_transfer_fee_percentage(&mut self, near_to_eth: u128, eth_to_near: u128) {
-        // assert!(self.is_owner(), "Only owner can set the transfer fee percentage");
+        assert!(
+            self.is_owner(),
+            "Only owner can set the transfer fee percentage"
+        );
         self.transfer_fee_percentage = TransferFeePercentage {
             near_to_eth,
             eth_to_near,
         };
     }
 
-    pub fn set_fee_bounds(&mut self, lower_bound: u128, upper_bound: u128) {
-        // assert!(self.is_owner(), "Only owner can set the fee bounds");
+    /// Fee bounds for near -> eth transfers [Deposit]
+    pub fn set_deposit_fee_bounds(&mut self, lower_bound: u128, upper_bound: u128) {
+        assert!(self.is_owner(), "Only owner can set the deposit fee bounds");
         assert!(
             lower_bound < upper_bound,
             "Lower bound can't be less than upper bound value"
         );
-        self.transfer_fee_bounds = FeeBounds {
+        self.deposit_fee_bounds = FeeBounds {
+            lower_bound,
+            upper_bound,
+        };
+    }
+
+    /// Fee bounds for eth -> near transfer [Withdraw]
+    pub fn set_withdraw_fee_bounds(&mut self, lower_bound: u128, upper_bound: u128) {
+        assert!(
+            self.is_owner(),
+            "Only owner can set the withdraw fee bounds"
+        );
+        assert!(
+            lower_bound < upper_bound,
+            "Lower bound can't be less than upper bound value"
+        );
+        self.withdraw_fee_bounds = FeeBounds {
             lower_bound,
             upper_bound,
         };
@@ -160,12 +204,20 @@ impl NearBridge {
         self.transfer_fee_percentage
     }
 
-    pub fn get_fee_bounds(&self) -> FeeBounds {
-        self.transfer_fee_bounds
+    pub fn get_deposit_fee_bounds(&self) -> FeeBounds {
+        self.deposit_fee_bounds
     }
 
-    fn check_fee_bounds(&self, amount: u128) -> u128 {
-        let fee_bounds = self.get_fee_bounds();
+    pub fn get_withdraw_fee_bounds(&self) -> FeeBounds {
+        self.withdraw_fee_bounds
+    }
+
+    fn check_fee_bounds(&self, amount: u128, fee_type: FeeType) -> u128 {
+        let fee_bounds = if fee_type == FeeType::Deposit {
+            self.get_deposit_fee_bounds()
+        } else {
+            self.get_withdraw_fee_bounds()
+        };
 
         if amount < fee_bounds.lower_bound {
             return fee_bounds.lower_bound;
@@ -233,14 +285,23 @@ impl NearBridge {
             env::panic(b"Attached deposit is not sufficient to record proof");
         }
 
-        let mut fee_amount =
-            (env::attached_deposit() * transfer_fee_percentage.eth_to_near) / FEE_DECIMAL_PRECISION;
-        fee_amount = self.check_fee_bounds(fee_amount);
-        let amount_to_transfer = env::attached_deposit() - fee_amount;
-        // fee transfered to current contract account
-        Promise::new(env::current_account_id()).transfer(fee_amount);
-        // amount after fee deductions is transfered to new_owner
+        let mut fee_amount = (amount * transfer_fee_percentage.eth_to_near) / FEE_DECIMAL_PRECISION;
+        fee_amount = self.check_fee_bounds(fee_amount, FeeType::Withdraw);
+        let amount_to_transfer = amount - fee_amount;
+        self.cumulative_fee_amount += fee_amount;
+
+        // Amount after fee deductions is transfered to new_owner
         Promise::new(new_owner_id).transfer(amount_to_transfer);
+    }
+
+    pub fn claim_fees(&mut self, amount: u128) {
+        assert!(self.is_owner(), "Only owner can claim the fee");
+        assert!(
+            self.cumulative_fee_amount > 0 && amount <= self.cumulative_fee_amount,
+            "Invalid fee amount to claim"
+        );
+        Promise::new(env::predecessor_account_id()).transfer(amount);
+        self.cumulative_fee_amount -= amount;
     }
 
     /// Checks whether the provided proof is already used
@@ -324,6 +385,13 @@ mod tests {
     fn alice_near_account() -> AccountId {
         "alice.near".to_string()
     }
+    fn owner_account() -> AccountId {
+        "owner.near".to_string()
+    }
+
+    fn contract_account() -> AccountId {
+        "contract.near".to_string()
+    }
 
     fn user_near_account() -> AccountId {
         "user.near".to_string()
@@ -389,7 +457,8 @@ mod tests {
     fn can_migrate_near_to_eth_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -405,7 +474,8 @@ mod tests {
     fn test_set_transfer_fee_percentage() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         contract.set_transfer_fee_percentage(100_000u128, 200_000u128);
         let expected_transfer_fee_percentage = contract.get_transfer_fee_percentage();
@@ -420,18 +490,56 @@ mod tests {
     }
 
     #[test]
-    fn test_set_transfer_fee_bounds() {
+    #[should_panic]
+    fn test_set_transfer_fee_percentage_should_panic_if_setter_is_other_than_owner() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
-        contract.set_fee_bounds(100u128, 200u128);
-        let expected_fee_bounds = contract.get_fee_bounds();
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
+
+        // here caller is not owner or contract
+        set_env!(predecessor_account_id: user_near_account());
+        contract.set_transfer_fee_percentage(100_000u128, 200_000u128);
+    }
+
+    #[test]
+    fn test_set_deposit_fee_bounds() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
+
+        set_env!(predecessor_account_id: owner_account());
+
+        contract.set_deposit_fee_bounds(100u128, 200u128);
+        let expected_deposit_fee_bounds = contract.get_deposit_fee_bounds();
         assert_eq!(
-            expected_fee_bounds.lower_bound, 100u128,
+            expected_deposit_fee_bounds.lower_bound, 100u128,
             "lower fee bound didn't matched"
         );
         assert_eq!(
-            expected_fee_bounds.upper_bound, 200u128,
+            expected_deposit_fee_bounds.upper_bound, 200u128,
+            "upper fee bound didn't matched"
+        );
+    }
+
+    #[test]
+    fn test_set_withdraw_fee_bounds() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
+
+        set_env!(predecessor_account_id: owner_account());
+
+        contract.set_withdraw_fee_bounds(100u128, 200u128);
+        let expected_withdraw_fee_bounds = contract.get_withdraw_fee_bounds();
+        assert_eq!(
+            expected_withdraw_fee_bounds.lower_bound, 100u128,
+            "lower fee bound didn't matched"
+        );
+        assert_eq!(
+            expected_withdraw_fee_bounds.upper_bound, 200u128,
             "upper fee bound didn't matched"
         );
     }
@@ -440,11 +548,12 @@ mod tests {
     fn test_migrate_near_to_eth_with_fee() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
         // set fee percentage
         contract.set_transfer_fee_percentage(100_000u128, 200_000u128);
         //set fee bounds
-        contract.set_fee_bounds(100u128, 200u128);
+        contract.set_deposit_fee_bounds(100u128, 200u128);
 
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -465,11 +574,53 @@ mod tests {
     }
 
     #[test]
+    fn test_fee_claim_after_migration_near_to_eth() {
+        set_env!(predecessor_account_id: alice_near_account());
+
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
+        println!("BALANCE-1: {}", env::account_balance());
+        // set fee percentage
+        contract.set_transfer_fee_percentage(100_000u128, 200_000u128);
+        //set fee bounds
+        contract.set_deposit_fee_bounds(100u128, 200u128);
+
+        // lets deposit 1 Near
+        let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
+        set_env!(
+            predecessor_account_id: user_near_account(),
+            attached_deposit: deposit_amount,
+        );
+        let amount_after_fee_deduction = 1_000_000_000_000_000_000_000_000u128 - 200;
+        let actual_result = contract.migrate_to_ethereum(alice_eth_address());
+        let expected_result = ResultType::MigrateNearToEthereum {
+            amount: amount_after_fee_deduction,
+            recipient: get_eth_address(alice_eth_address()),
+        };
+        assert_eq!(
+            actual_result, expected_result,
+            "result not matched as expected"
+        );
+
+        assert_eq!(
+            contract.cumulative_fee_amount, 200u128,
+            "cumulative fee amount doesn't matched before claim"
+        );
+        set_env!(predecessor_account_id: owner_account());
+        contract.claim_fees(50);
+        assert_eq!(
+            contract.cumulative_fee_amount, 150,
+            "cumulative fee amount doesn't matched after claim"
+        );
+    }
+
+    #[test]
     #[should_panic]
     fn migrate_near_to_eth_panics_when_attached_deposit_is_zero() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         contract.migrate_to_ethereum(alice_eth_address());
     }
@@ -479,7 +630,8 @@ mod tests {
     fn migrate_near_to_eth_panics_when_contract_is_paused() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         contract.set_paused(PAUSE_MIGRATE_TO_ETH);
 
@@ -498,7 +650,8 @@ mod tests {
     fn migrate_near_to_eth_panics_when_eth_address_is_invalid() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         contract.migrate_to_ethereum(invalid_eth_address());
     }
@@ -508,7 +661,8 @@ mod tests {
     fn finalise_eth_to_near_transfer_panics_when_contract_is_paused() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         contract.set_paused(PAUSE_ETH_TO_NEAR_TRANSFER);
 
@@ -520,7 +674,8 @@ mod tests {
     fn finalise_eth_to_near_transfer_panics_when_event_originates_from_wrong_contract() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()));
     }
@@ -530,7 +685,8 @@ mod tests {
     fn finish_eth_to_near_transfer_panics_if_attached_deposit_is_not_sufficient_to_record_proof() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
         let mock_proof = create_proof(e_near_eth_address());
         let required_deposit = 1720000000000000000000u128;
 
@@ -548,7 +704,8 @@ mod tests {
     fn finalise_eth_to_near_transfer_works_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract =
+            NearBridge::new(prover_near_account(), e_near_eth_address(), owner_account());
 
         // Alice deposit 1 Near to migrate to eth
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
