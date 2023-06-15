@@ -211,6 +211,9 @@ impl NearBridge {
     pub fn get_withdraw_fee_bounds(&self) -> FeeBounds {
         self.withdraw_fee_bounds
     }
+    pub fn get_accumulated_fee_amount(&self) -> u128 {
+        self.cumulative_fee_amount
+    }
 
     fn check_fee_bounds(&self, amount: u128, fee_type: FeeType) -> u128 {
         let fee_bounds = if fee_type == FeeType::Deposit {
