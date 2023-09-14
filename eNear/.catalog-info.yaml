@@ -17,5 +17,6 @@ spec:
   system: bridge-connectors
   deployedAt:
     - contract:ethereum/mainnet/0x85f17cf997934a597031b2e18a9ab6ebd4b9f6a4
+    - contract:ethereum/goerli/0xe6b7C088Da1c2BfCf84aaE03fd6DE3C4f28629dA
   interactsWith: []
   subcomponentOf: near-erc20-connector
