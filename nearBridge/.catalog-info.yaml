@@ -17,6 +17,6 @@ spec:
   system: bridge-connectors
   deployedAt:
     - contract:near/mainnet/e-near.near
-    - contract:near/testnet/e-near.goerli.testnet
+    - contract:near/testnet/enear.goerli.testnet
   interactsWith: []
   subcomponentOf: near-erc20-connector
