@@ -1,14 +1,16 @@
+use near_plugins::{
+    access_control, access_control_any, pause, AccessControlRole, AccessControllable, Pausable,
+    Upgradable,
+};
 /**
 * Bridge for Near Native token
 */
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedSet;
-use near_sdk::{env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise};
-
-use admin_controlled::{AdminControlled, Mask};
-
-near_sdk::setup_alloc!();
-
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{
+    env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise, PublicKey,
+};
 use prover::ext_prover;
 pub use prover::{get_eth_address, is_valid_eth_address, EthAddress, Proof};
 pub use transfer_to_near_event::TransferToNearInitiatedEvent;
@@ -17,15 +19,11 @@ pub mod prover;
 mod transfer_to_near_event;
 
 /// Gas to call finalise method.
-const FINISH_FINALISE_GAS: Gas = 50_000_000_000_000;
-
-const NO_DEPOSIT: Balance = 0;
-
+const FINISH_FINALISE_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
 /// Gas to call verify_log_entry on prover.
-const VERIFY_LOG_ENTRY_GAS: Gas = 50_000_000_000_000;
+const VERIFY_LOG_ENTRY_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
 
-const PAUSE_MIGRATE_TO_ETH: Mask = 1 << 0;
-const PAUSE_ETH_TO_NEAR_TRANSFER: Mask = 1 << 1;
+pub type Mask = u128;
 
 #[derive(Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum ResultType {
@@ -35,8 +33,28 @@ pub enum ResultType {
     },
 }
 
+#[derive(AccessControlRole, Deserialize, Serialize, Copy, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub enum Role {
+    DAO,
+    PauseManager,
+    UnrestrictedMigrateToEthereum,
+    UnrestrictedFinaliseEthToNearTransfer,
+    UpgradableCodeStager,
+    UpgradableCodeDeployer,
+}
+
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Pausable, Upgradable)]
+#[access_control(role_type(Role))]
+#[pausable(manager_roles(Role::PauseManager, Role::DAO))]
+#[upgradable(access_control_roles(
+    code_stagers(Role::UpgradableCodeStager, Role::DAO),
+    code_deployers(Role::UpgradableCodeDeployer, Role::DAO),
+    duration_initializers(Role::DAO),
+    duration_update_stagers(Role::DAO),
+    duration_update_appliers(Role::DAO),
+))]
 pub struct NearBridge {
     /// The account of the prover that we can use to prove
     pub prover_account: AccountId,
@@ -56,12 +74,15 @@ impl NearBridge {
     #[init]
     pub fn new(prover_account: AccountId, e_near_address: String) -> Self {
         assert!(!env::state_exists(), "Already initialized");
-        Self {
+        let mut contract = Self {
             prover_account,
             e_near_address: get_eth_address(e_near_address),
             used_events: UnorderedSet::new(b"u".to_vec()),
             paused: Mask::default(),
-        }
+        };
+
+        contract.acl_init_super_admin(near_sdk::env::predecessor_account_id());
+        contract
     }
 
     /// Deposit NEAR for bridging from the predecessor account ID
@@ -74,13 +95,12 @@ impl NearBridge {
     #[payable]
     #[result_serializer(borsh)]
     // todo: how much GAS is required to execute this method with sending the tokens back and ensure we have enough
+    #[pause(except(roles(Role::DAO, Role::UnrestrictedMigrateToEthereum)))]
     pub fn migrate_to_ethereum(&mut self, eth_recipient: String) -> ResultType {
-        self.check_not_paused(PAUSE_MIGRATE_TO_ETH);
-
         // Predecessor must attach Near to migrate to ETH
         let attached_deposit = env::attached_deposit();
         if attached_deposit == 0 {
-            env::panic(b"Attached deposit must be greater than zero");
+            env::panic_str("Attached deposit must be greater than zero");
         }
 
         // If the method is paused or the eth recipient address is invalid, then we need to:
@@ -88,7 +108,7 @@ impl NearBridge {
         //  2) Panic and tell the user why
         let eth_recipient_clone = eth_recipient.clone();
         if !is_valid_eth_address(eth_recipient_clone) {
-            env::panic(b"ETH address is invalid");
+            env::panic_str("ETH address is invalid");
         }
 
         ResultType::MigrateNearToEthereum {
@@ -98,9 +118,8 @@ impl NearBridge {
     }
 
     #[payable]
+    #[pause(except(roles(Role::DAO, Role::UnrestrictedFinaliseEthToNearTransfer)))]
     pub fn finalise_eth_to_near_transfer(&mut self, #[serializer(borsh)] proof: Proof) {
-        self.check_not_paused(PAUSE_ETH_TO_NEAR_TRANSFER);
-
         let event = TransferToNearInitiatedEvent::from_log_entry_data(&proof.log_entry_data);
         assert_eq!(
             event.e_near_address,
@@ -112,26 +131,27 @@ impl NearBridge {
 
         let proof_1 = proof.clone();
 
-        ext_prover::verify_log_entry(
-            proof.log_index,
-            proof.log_entry_data,
-            proof.receipt_index,
-            proof.receipt_data,
-            proof.header_data,
-            proof.proof,
-            false, // Do not skip bridge call. This is only used for development and diagnostics.
-            &self.prover_account,
-            NO_DEPOSIT,
-            VERIFY_LOG_ENTRY_GAS,
-        )
-        .then(ext_self::finish_eth_to_near_transfer(
-            event.recipient,
-            event.amount,
-            proof_1,
-            &env::current_account_id(),
-            env::attached_deposit(),
-            FINISH_FINALISE_GAS,
-        ));
+        ext_prover::ext(self.prover_account.clone())
+            .with_static_gas(VERIFY_LOG_ENTRY_GAS)
+            .verify_log_entry(
+                proof.log_index,
+                proof.log_entry_data,
+                proof.receipt_index,
+                proof.receipt_data,
+                proof.header_data,
+                proof.proof,
+                false, // Do not skip bridge call. This is only used for development and diagnostics.
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_static_gas(FINISH_FINALISE_GAS)
+                    .with_attached_deposit(env::attached_deposit())
+                    .finish_eth_to_near_transfer(
+                        event.recipient.parse().unwrap(),
+                        event.amount,
+                        proof_1,
+                    ),
+            );
     }
 
     /// Finish depositing once the proof was successfully validated. Can only be called by the contract
@@ -151,7 +171,7 @@ impl NearBridge {
 
         let required_deposit = self.record_proof(&proof);
         if env::attached_deposit() < required_deposit {
-            env::panic(b"Attached deposit is not sufficient to record proof");
+            env::panic_str("Attached deposit is not sufficient to record proof");
         }
 
         Promise::new(new_owner_id).transfer(amount);
@@ -181,6 +201,15 @@ impl NearBridge {
 
         required_deposit
     }
+
+    #[access_control_any(roles(Role::DAO))]
+    pub fn attach_full_access_key(&self, public_key: PublicKey) -> Promise {
+        Promise::new(env::current_account_id()).add_full_access_key(public_key)
+    }
+
+    pub fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").to_owned()
+    }
 }
 
 #[ext_contract(ext_self)]
@@ -197,21 +226,15 @@ pub trait ExtNearBridge {
     ) -> Promise;
 }
 
-admin_controlled::impl_admin_controlled!(NearBridge, paused);
-
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use near_sdk::test_utils::VMContextBuilder;
-    use near_sdk::{testing_env, MockedBlockchain};
+    use near_sdk::testing_env;
 
     use super::*;
-    use near_sdk::env::sha256;
     use std::convert::TryInto;
-    use std::panic;
-    use uint::rustc_hex::{FromHex, ToHex};
-
-    const UNPAUSE_ALL: Mask = 0;
+    use uint::rustc_hex::FromHex;
 
     macro_rules! inner_set_env {
         ($builder:ident) => {
@@ -236,10 +259,10 @@ mod tests {
     }
 
     fn alice_near_account() -> AccountId {
-        "alice.near".to_string()
+        "alice.near".parse().unwrap()
     }
     fn prover_near_account() -> AccountId {
-        "prover".to_string()
+        "prover".parse().unwrap()
     }
     fn e_near_eth_address() -> String {
         "68a3637ba6e75c0f66b61a42639c4e9fcd3d4824".to_string()
@@ -249,16 +272,6 @@ mod tests {
     }
     fn invalid_eth_address() -> String {
         "25Ac31A08EBA29067Ba4637788d1DbFB893cEBf".to_string()
-    }
-
-    /// Generate a valid ethereum address
-    fn ethereum_address_from_id(id: u8) -> String {
-        let mut buffer = vec![id];
-        sha256(buffer.as_mut())
-            .into_iter()
-            .take(20)
-            .collect::<Vec<_>>()
-            .to_hex()
     }
 
     fn sample_proof() -> Proof {
@@ -328,7 +341,7 @@ mod tests {
 
         let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
 
-        contract.set_paused(PAUSE_MIGRATE_TO_ETH);
+        contract.pa_pause_feature("migrate_to_ethereum".to_owned());
 
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -357,7 +370,7 @@ mod tests {
 
         let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
 
-        contract.set_paused(PAUSE_ETH_TO_NEAR_TRANSFER);
+        contract.pa_pause_feature("finalise_eth_to_near_transfer".to_owned());
 
         contract.finalise_eth_to_near_transfer(sample_proof());
     }
