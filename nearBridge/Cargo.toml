@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 near-sdk = "4.1.1"
 near-contract-standards = "4.1.1"
-eth-types =  { git = "https://github.com/near/rainbow-bridge", rev = "bf7cc1e81ee4a4fad3e74e2c599b0b6cf3757f4d", default-features = false}
+eth-types =  { git = "https://github.com/near/rainbow-bridge", tag = "eth-types-0.1.0", default-features = false}
 ethabi = "12.0.0"
 rlp = "0.5.2"
 hex = "0.4.3"

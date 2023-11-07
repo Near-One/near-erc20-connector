@@ -66,6 +66,7 @@ pub struct NearBridge {
     pub used_events: UnorderedSet<Vec<u8>>,
 
     /// Mask determining all paused functions
+    #[deprecated]
     paused: Mask,
 }
 
@@ -74,6 +75,7 @@ impl NearBridge {
     #[init]
     pub fn new(prover_account: AccountId, e_near_address: String) -> Self {
         assert!(!env::state_exists(), "Already initialized");
+        #[allow(deprecated)]
         let mut contract = Self {
             prover_account,
             e_near_address: get_eth_address(e_near_address),
