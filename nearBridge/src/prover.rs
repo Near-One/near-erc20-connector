@@ -5,7 +5,6 @@ use ethabi::param_type::Writer;
 use ethabi::{Event, EventParam, Hash, Log, ParamType, RawLog, Token};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, ext_contract};
-use near_sdk::serde::{Deserialize, Serialize};
 use tiny_keccak::Keccak;
 
 pub type EthAddress = [u8; 20];
@@ -41,7 +40,7 @@ pub trait Prover {
     ) -> bool;
 }
 
-#[derive(Default, BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize)]
+#[derive(Default, BorshDeserialize, BorshSerialize, Clone)]
 pub struct Proof {
     pub log_index: u64,
     pub log_entry_data: Vec<u8>,
@@ -127,7 +126,7 @@ impl EthEvent {
             topics: vec![vec![long_signature(&event.name, &params).0.into()], topics].concat(),
             data: ethabi::encode(&values),
         };
-        rlp::encode(&log_entry)
+        rlp::encode(&log_entry).to_vec()
     }
 }
 
