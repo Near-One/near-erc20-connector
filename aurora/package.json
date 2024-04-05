@@ -1,0 +1,17 @@
+{
+  "name": "native-near-from-aurora",
+  "version": "1.0.0",
+  "description": "Connector for transferring NEAR from Aurora straight to Ethereum",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.2"
+  },
+  "dependencies": {
+    "@auroraisnear/aurora-sdk": "^0.0.1",
+    "@openzeppelin/contracts": "^5.0.2",
+    "dotenv": "^16.4.5",
+    "fp-ts": "^2.16.5"
+  }
+}
