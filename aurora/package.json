@@ -11,6 +11,7 @@
   "dependencies": {
     "@auroraisnear/aurora-sdk": "^0.0.1",
     "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "dotenv": "^16.4.5",
     "fp-ts": "^2.16.5"
   }

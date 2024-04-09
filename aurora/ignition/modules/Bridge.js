@@ -9,10 +9,12 @@ module.exports = buildModule("Bridge", (m) => {
 
   const bridge = m.contract(
     "NearBridge",
-    [wNearAddress, eNearAccountId],
+    [],
     {
       libraries: { AuroraSdk: auroraSdk, Utils: utils }
     });
+
+  m.call(bridge, "initialize", [wNearAddress, eNearAccountId]);
 
   return { bridge };
 });
