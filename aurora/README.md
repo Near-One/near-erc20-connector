@@ -8,7 +8,7 @@ Smart contract for transferring NEAR from Aurora to Ethereum. This is done by ma
 
 Install dependencies
 ```
-npm i
+yarn
 ```
 
 Build

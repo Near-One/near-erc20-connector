@@ -4,8 +4,13 @@
   "description": "Connector for transferring NEAR from Aurora straight to Ethereum",
   "license": "MIT",
   "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.5",
+    "@nomicfoundation/hardhat-ignition": "^0.15.0",
     "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.5",
+    "@nomicfoundation/ignition-core": "^0.15.0",
+    "ethers": "^6.11.1",
     "hardhat": "^2.22.2"
   },
   "dependencies": {
