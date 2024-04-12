@@ -3,15 +3,21 @@
   "version": "1.0.0",
   "description": "Connector for transferring NEAR from Aurora straight to Ethereum",
   "license": "MIT",
+  "scripts": {
+    "build": "hardhat compile",
+    "deploy:testnet": "hardhat deploy --environment testnet --network testnet_aurora",
+    "deploy:mainnet": "hardhat deploy --environment mainnet --network mainnet_aurora",
+    "verify": "hardhat verify --network testnet_aurora"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
-    "@nomicfoundation/hardhat-ignition": "^0.15.0",
-    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.5",
-    "@nomicfoundation/ignition-core": "^0.15.0",
+    "@openzeppelin/hardhat-upgrades": "^3.0.5",
     "ethers": "^6.11.1",
-    "hardhat": "^2.22.2"
+    "hardhat": "^2.22.2",
+    "hardhat-deploy": "^0.12.2",
+    "hardhat-verify": "^1.0.0"
   },
   "dependencies": {
     "@auroraisnear/aurora-sdk": "^0.0.1",

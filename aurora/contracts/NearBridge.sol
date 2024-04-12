@@ -21,6 +21,11 @@ contract NearBridge is UUPSUpgradeable, PausableUpgradeable, OwnableUpgradeable 
     error AmountIsZero();
     error RecipientIsZeroAddress();
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address wnear, string memory _eNearAccountId) external initializer {
         near = AuroraSdk.initNear(IERC20(wnear));
         eNearAccountId = _eNearAccountId;

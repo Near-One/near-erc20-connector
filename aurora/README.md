@@ -13,10 +13,16 @@ yarn
 
 Build
 ```
-npx hardhat compile
+yarn build
 ```
 
 Deploy
 ```
-npx hardhat ignition deploy ignition/modules/Bridge.js --network {} --parameters {insert_params_file}
+yarn deploy:testnet
+yarn deploy:mainnet
+```
+
+Verify
+```
+yarn verify {contract_id}
 ```
