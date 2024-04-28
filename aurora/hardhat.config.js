@@ -2,7 +2,7 @@ require("dotenv").config();
 require('@openzeppelin/hardhat-upgrades');
 require("@nomicfoundation/hardhat-verify");
 
-const AURORA_PRIVATE_KEY = process.env.AURORA_PRIVATE_KEY;
+const AURORA_PRIVATE_KEY = process.env.AURORA_PRIVATE_KEY || '11'.repeat(32);
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 
 module.exports = {
