@@ -1,8 +1,8 @@
 require("dotenv").config();
-require('@openzeppelin/hardhat-upgrades');
+require("@openzeppelin/hardhat-upgrades");
 require("@nomicfoundation/hardhat-verify");
 
-const AURORA_PRIVATE_KEY = process.env.AURORA_PRIVATE_KEY || '11'.repeat(32);
+const AURORA_PRIVATE_KEY = process.env.AURORA_PRIVATE_KEY || "11".repeat(32);
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 
 module.exports = {
@@ -17,14 +17,32 @@ module.exports = {
       url: "https://mainnet.aurora.dev",
       accounts: [`0x${AURORA_PRIVATE_KEY}`],
       chainId: 1313161554,
-    }
+    },
   },
   etherscan: {
     apiKey: {
-      auroraMainnet: `${ETHERSCAN_API_KEY}`,
-      auroraTestnet: `${ETHERSCAN_API_KEY}`,
+      mainnet_aurora: `${ETHERSCAN_API_KEY}`,
+      testnet_aurora: `${ETHERSCAN_API_KEY}`,
     },
-  }
+    customChains: [
+      {
+        network: "mainnet_aurora",
+        chainId: 1313161554,
+        urls: {
+          apiURL: "https://old.explorer.aurora.dev/api",
+          browserURL: "https://explorer.mainnet.aurora.dev",
+        },
+      },
+      {
+        network: "testnet_aurora",
+        chainId: 1313161555,
+        urls: {
+          apiURL: "https://explorer.testnet.aurora.dev/api",
+          browserURL: "https://explorer.testnet.aurora.dev",
+        },
+      },
+    ],
+  },
 };
 
 task("deploy", "Deploy bridge contract")

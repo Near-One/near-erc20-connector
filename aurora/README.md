@@ -24,5 +24,6 @@ yarn deploy:mainnet
 
 Verify
 ```
-yarn verify {contract_id}
+yarn verify:testnet {contract_id}
+yarn verify:mainnet {contract_id}
 ```

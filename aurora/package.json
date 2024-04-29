@@ -7,7 +7,8 @@
     "build": "hardhat compile",
     "deploy:testnet": "hardhat deploy --environment testnet --network testnet_aurora",
     "deploy:mainnet": "hardhat deploy --environment mainnet --network mainnet_aurora",
-    "verify": "hardhat verify --network testnet_aurora"
+    "verify:testnet": "hardhat verify --network testnet_aurora",
+    "verify:mainnet": "hardhat verify --network mainnet_aurora"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
@@ -16,8 +17,7 @@
     "@openzeppelin/hardhat-upgrades": "^3.0.5",
     "ethers": "^6.11.1",
     "hardhat": "^2.22.2",
-    "hardhat-deploy": "^0.12.2",
-    "hardhat-verify": "^1.0.0"
+    "hardhat-deploy": "^0.12.2"
   },
   "dependencies": {
     "@auroraisnear/aurora-sdk": "^0.0.1",
