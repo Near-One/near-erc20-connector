@@ -95,7 +95,8 @@ impl NearBridge {
             paused: Mask::default(),
         };
 
-        contract.acl_init_super_admin(near_sdk::env::predecessor_account_id());
+        contract.acl_init_super_admin(env::predecessor_account_id());
+        contract.acl_grant_role(Role::DAO.into(), env::predecessor_account_id());
         contract.set_wnear_account_id(wnear_account);
         contract
     }
@@ -504,5 +505,26 @@ mod tests {
         contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
 
         // todo asserts i.e. that alice has received the 1 near back etc.
+    }
+
+    #[test]
+    fn test_set_wnear_account_id() {
+        set_env!(
+            predecessor_account_id: alice_near_account(),
+            signer_account_id: alice_near_account()
+        );
+
+        let contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            "old_wnear_near.near".parse().unwrap(),
+        );
+
+        contract.set_wnear_account_id(wnear_near_account());
+
+        assert_eq!(
+            contract.get_wnear_account_id().unwrap(),
+            wnear_near_account()
+        );
     }
 }
