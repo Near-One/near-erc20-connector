@@ -8,6 +8,8 @@ use near_sdk::{env, ext_contract, AccountId};
 use tiny_keccak::Keccak;
 
 pub type EthAddress = [u8; 20];
+
+#[derive(Debug, PartialEq)]
 pub struct Recipient {
     pub target: AccountId,
     pub message: Option<String>,
@@ -164,4 +166,49 @@ fn fill_signature(name: &str, params: &[ParamType], result: &mut [u8]) {
     let mut sponge = Keccak::new_keccak256();
     sponge.update(&data);
     sponge.finalize(result);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse_recipient() {
+        assert_eq!(
+            parse_recipient("test.near").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: None,
+            }
+        );
+
+        assert_eq!(
+            parse_recipient("test.near:unwrap").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: Some("unwrap".to_owned()),
+            }
+        );
+
+        assert_eq!(
+            parse_recipient("test.near:some_msg:with_extra_colon").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: Some("some_msg:with_extra_colon".to_owned()),
+            }
+        );
+
+        assert_eq!(
+            parse_recipient("test.near:").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: Some("".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_invalid_recipient() {
+        assert!(parse_recipient("test@.near").is_none());
+        assert!(parse_recipient("test@.near:msg").is_none());
+    }
 }
