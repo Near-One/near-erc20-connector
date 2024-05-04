@@ -129,7 +129,7 @@ impl NearBridge {
 
     #[payable]
     #[pause(except(roles(Role::DAO, Role::UnrestrictedFinaliseEthToNearTransfer)))]
-    pub fn finalise_eth_to_near_transfer(&mut self, #[serializer(borsh)] proof: Proof) {
+    pub fn finalise_eth_to_near_transfer(&mut self, #[serializer(borsh)] proof: Proof) -> Promise {
         let event = TransferToNearInitiatedEvent::from_log_entry_data(&proof.log_entry_data);
         assert_eq!(
             event.e_near_address,
@@ -157,7 +157,7 @@ impl NearBridge {
                     .with_static_gas(FINISH_FINALISE_GAS)
                     .with_attached_deposit(env::attached_deposit())
                     .finish_eth_to_near_transfer(event.recipient, event.amount, proof_1),
-            );
+            )
     }
 
     /// Finish depositing once the proof was successfully validated. Can only be called by the contract
