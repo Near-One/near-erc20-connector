@@ -283,6 +283,7 @@ pub trait ExtWNearToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use near_sdk::test_utils::test_env::bob;
     use near_sdk::test_utils::VMContextBuilder;
     use near_sdk::testing_env;
 
@@ -415,7 +416,7 @@ mod tests {
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
         set_env!(
-            predecessor_account_id: alice_near_account(),
+            predecessor_account_id: bob(),
             attached_deposit: deposit_amount,
         );
 
