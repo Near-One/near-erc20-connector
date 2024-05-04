@@ -81,7 +81,11 @@ pub struct NearBridge {
 #[near_bindgen]
 impl NearBridge {
     #[init]
-    pub fn new(prover_account: AccountId, e_near_address: String) -> Self {
+    pub fn new(
+        prover_account: AccountId,
+        e_near_address: String,
+        wnear_account: AccountId,
+    ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         #[allow(deprecated)]
         let mut contract = Self {
@@ -92,6 +96,7 @@ impl NearBridge {
         };
 
         contract.acl_init_super_admin(near_sdk::env::predecessor_account_id());
+        contract.set_wnear_account_id(wnear_account);
         contract
     }
 
@@ -312,6 +317,9 @@ mod tests {
     fn prover_near_account() -> AccountId {
         "prover".parse().unwrap()
     }
+    fn wnear_near_account() -> AccountId {
+        "wrap.near".parse().unwrap()
+    }
     fn e_near_eth_address() -> String {
         "68a3637ba6e75c0f66b61a42639c4e9fcd3d4824".to_string()
     }
@@ -360,7 +368,11 @@ mod tests {
     fn can_migrate_near_to_eth_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -377,7 +389,11 @@ mod tests {
     fn migrate_near_to_eth_panics_when_attached_deposit_is_zero() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.migrate_to_ethereum(alice_eth_address());
     }
@@ -387,7 +403,11 @@ mod tests {
     fn migrate_near_to_eth_panics_when_contract_is_paused() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.pa_pause_feature("migrate_to_ethereum".to_owned());
 
@@ -406,7 +426,11 @@ mod tests {
     fn migrate_near_to_eth_panics_when_eth_address_is_invalid() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.migrate_to_ethereum(invalid_eth_address());
     }
@@ -416,7 +440,11 @@ mod tests {
     fn finalise_eth_to_near_transfer_panics_when_contract_is_paused() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.pa_pause_feature("finalise_eth_to_near_transfer".to_owned());
 
@@ -428,7 +456,11 @@ mod tests {
     fn finalise_eth_to_near_transfer_panics_when_event_originates_from_wrong_contract() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()));
     }
@@ -438,7 +470,11 @@ mod tests {
     fn finish_eth_to_near_transfer_panics_if_attached_deposit_is_not_sufficient_to_record_proof() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
     }
@@ -447,7 +483,11 @@ mod tests {
     fn finalise_eth_to_near_transfer_works_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         // Alice deposit 1 Near to migrate to eth
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -461,7 +501,7 @@ mod tests {
         // todo adjust attached deposit down
 
         // Lets suppose Alice migrates back
-        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()))
+        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
 
         // todo asserts i.e. that alice has received the 1 near back etc.
     }
