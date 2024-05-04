@@ -468,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Attached deposit is not sufficient to record proof")]
     fn finish_eth_to_near_transfer_panics_if_attached_deposit_is_not_sufficient_to_record_proof() {
         set_env!(predecessor_account_id: alice_near_account());
 
@@ -478,7 +478,12 @@ mod tests {
             wnear_near_account(),
         );
 
-        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
+        contract.finish_eth_to_near_transfer(
+            true,
+            bob().to_string(),
+            10,
+            create_proof(e_near_eth_address()),
+        );
     }
 
     #[test]
