@@ -4,10 +4,14 @@ use eth_types::*;
 use ethabi::param_type::Writer;
 use ethabi::{Event, EventParam, Hash, Log, ParamType, RawLog, Token};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, ext_contract};
+use near_sdk::{env, ext_contract, AccountId};
 use tiny_keccak::Keccak;
 
 pub type EthAddress = [u8; 20];
+pub struct Recipient {
+    pub target: AccountId,
+    pub message: Option<String>,
+}
 
 pub fn is_valid_eth_address(address: String) -> bool {
     if hex::decode(address.clone()).is_err() {
@@ -23,6 +27,18 @@ pub fn get_eth_address(address: String) -> EthAddress {
     let mut result = [0u8; 20];
     result.copy_from_slice(&data);
     result
+}
+
+pub fn parse_recipient(recipient: &str) -> Option<Recipient> {
+    let (target, message) = recipient.split_once(':').map_or_else(
+        || (recipient, None),
+        |(recipient, msg)| (recipient, Some(msg.to_owned())),
+    );
+
+    Some(Recipient {
+        target: target.parse().ok()?,
+        message,
+    })
 }
 
 #[ext_contract(ext_prover)]

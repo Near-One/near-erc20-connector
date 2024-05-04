@@ -7,21 +7,29 @@ use near_plugins::{
 */
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedSet;
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise, PublicKey,
+    env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise,
+    PromiseOrValue, PublicKey, ONE_YOCTO,
 };
 use prover::ext_prover;
 pub use prover::{get_eth_address, is_valid_eth_address, EthAddress, Proof};
 pub use transfer_to_near_event::TransferToNearInitiatedEvent;
 
+use crate::prover::{parse_recipient, Recipient};
+
 pub mod prover;
 mod transfer_to_near_event;
 
 /// Gas to call finalise method.
-const FINISH_FINALISE_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
+const FINISH_FINALISE_GAS: Gas = Gas(Gas::ONE_TERA.0 * 100);
 /// Gas to call verify_log_entry on prover.
 const VERIFY_LOG_ENTRY_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
+const WNEAR_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 10);
+const FT_TRANSFER_CALL_GAS: Gas = Gas(Gas::ONE_TERA.0 * 80);
+
+const WNEAR_STORAGE_KEY: &[u8] = b"wnear";
 
 pub type Mask = u128;
 
@@ -148,11 +156,7 @@ impl NearBridge {
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(FINISH_FINALISE_GAS)
                     .with_attached_deposit(env::attached_deposit())
-                    .finish_eth_to_near_transfer(
-                        event.recipient.parse().unwrap(),
-                        event.amount,
-                        proof_1,
-                    ),
+                    .finish_eth_to_near_transfer(event.recipient, event.amount, proof_1),
             );
     }
 
@@ -164,10 +168,10 @@ impl NearBridge {
         #[callback]
         #[serializer(borsh)]
         verification_success: bool,
-        #[serializer(borsh)] new_owner_id: AccountId,
+        #[serializer(borsh)] new_owner_id: String,
         #[serializer(borsh)] amount: Balance,
         #[serializer(borsh)] proof: Proof,
-    ) {
+    ) -> Promise {
         near_sdk::assert_self();
         assert!(verification_success, "Failed to verify the proof");
 
@@ -176,7 +180,27 @@ impl NearBridge {
             env::panic_str("Attached deposit is not sufficient to record proof");
         }
 
-        Promise::new(new_owner_id).transfer(amount);
+        let Recipient { target, message } = parse_recipient(&new_owner_id)
+            .unwrap_or_else(|| env::panic_str("Failed to parse recipient"));
+
+        match message {
+            Some(message) => {
+                let wnear_account_id = self
+                    .get_wnear_account_id()
+                    .unwrap_or_else(|| env::panic_str("WNear address hasn't been set"));
+                ext_wnear_token::ext(wnear_account_id.clone())
+                    .with_static_gas(WNEAR_DEPOSIT_GAS)
+                    .with_attached_deposit(amount)
+                    .near_deposit()
+                    .then(
+                        ext_wnear_token::ext(wnear_account_id)
+                            .with_static_gas(FT_TRANSFER_CALL_GAS)
+                            .with_attached_deposit(ONE_YOCTO)
+                            .ft_transfer_call(target, amount.into(), None, message),
+                    )
+            }
+            None => Promise::new(target).transfer(amount),
+        }
     }
 
     /// Checks whether the provided proof is already used
@@ -205,6 +229,15 @@ impl NearBridge {
     }
 
     #[access_control_any(roles(Role::DAO))]
+    pub fn set_wnear_account_id(&self, wnear: AccountId) {
+        env::storage_write(WNEAR_STORAGE_KEY, &wnear.try_to_vec().unwrap());
+    }
+
+    pub fn get_wnear_account_id(&self) -> Option<AccountId> {
+        AccountId::try_from_slice(&env::storage_read(WNEAR_STORAGE_KEY)?).ok()
+    }
+
+    #[access_control_any(roles(Role::DAO))]
     pub fn attach_full_access_key(&self, public_key: PublicKey) -> Promise {
         Promise::new(env::current_account_id()).add_full_access_key(public_key)
     }
@@ -222,10 +255,23 @@ pub trait ExtNearBridge {
         #[callback]
         #[serializer(borsh)]
         verification_success: bool,
-        #[serializer(borsh)] new_owner_id: AccountId,
+        #[serializer(borsh)] new_owner_id: String,
         #[serializer(borsh)] amount: Balance,
         #[serializer(borsh)] proof: Proof,
     ) -> Promise;
+}
+
+#[ext_contract(ext_wnear_token)]
+pub trait ExtWNearToken {
+    fn ft_transfer_call(
+        &self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
+
+    fn near_deposit(&self);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
