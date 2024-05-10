@@ -82,6 +82,7 @@ pub struct NearBridge {
 #[near_bindgen]
 impl NearBridge {
     #[init]
+    #[payable]
     pub fn new(
         prover_account: AccountId,
         e_near_address: String,
