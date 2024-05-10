@@ -27,6 +27,7 @@ const FINISH_FINALISE_GAS: Gas = Gas(Gas::ONE_TERA.0 * 100);
 /// Gas to call verify_log_entry on prover.
 const VERIFY_LOG_ENTRY_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
 const WNEAR_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 10);
+const WNEAR_STORAGE_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 5);
 const FT_TRANSFER_CALL_GAS: Gas = Gas(Gas::ONE_TERA.0 * 80);
 
 const WNEAR_STORAGE_KEY: &[u8] = b"wnear";
@@ -234,9 +235,15 @@ impl NearBridge {
         required_deposit
     }
 
+    #[payable]
     #[access_control_any(roles(Role::DAO))]
-    pub fn set_wnear_account_id(&self, wnear: AccountId) {
+    pub fn set_wnear_account_id(&mut self, wnear: AccountId) -> Promise {
         env::storage_write(WNEAR_STORAGE_KEY, &wnear.try_to_vec().unwrap());
+
+        ext_wnear_token::ext(wnear)
+            .with_static_gas(WNEAR_STORAGE_DEPOSIT_GAS)
+            .with_attached_deposit(env::attached_deposit())
+            .storage_deposit(env::current_account_id())
     }
 
     pub fn get_wnear_account_id(&self) -> Option<AccountId> {
@@ -278,6 +285,7 @@ pub trait ExtWNearToken {
     ) -> PromiseOrValue<U128>;
 
     fn near_deposit(&self);
+    fn storage_deposit(&self, account_id: AccountId);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -520,7 +528,7 @@ mod tests {
             signer_account_id: alice_near_account()
         );
 
-        let contract = NearBridge::new(
+        let mut contract = NearBridge::new(
             prover_near_account(),
             e_near_eth_address(),
             "old_wnear_near.near".parse().unwrap(),
