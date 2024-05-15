@@ -4,10 +4,16 @@ use eth_types::*;
 use ethabi::param_type::Writer;
 use ethabi::{Event, EventParam, Hash, Log, ParamType, RawLog, Token};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, ext_contract};
+use near_sdk::{env, ext_contract, AccountId};
 use tiny_keccak::Keccak;
 
 pub type EthAddress = [u8; 20];
+
+#[derive(Debug, PartialEq)]
+pub struct Recipient {
+    pub target: AccountId,
+    pub message: Option<String>,
+}
 
 pub fn is_valid_eth_address(address: String) -> bool {
     if hex::decode(address.clone()).is_err() {
@@ -23,6 +29,18 @@ pub fn get_eth_address(address: String) -> EthAddress {
     let mut result = [0u8; 20];
     result.copy_from_slice(&data);
     result
+}
+
+pub fn parse_recipient(recipient: &str) -> Option<Recipient> {
+    let (target, message) = recipient.split_once(':').map_or_else(
+        || (recipient, None),
+        |(recipient, msg)| (recipient, Some(msg.to_owned())),
+    );
+
+    Some(Recipient {
+        target: target.parse().ok()?,
+        message,
+    })
 }
 
 #[ext_contract(ext_prover)]
@@ -148,4 +166,49 @@ fn fill_signature(name: &str, params: &[ParamType], result: &mut [u8]) {
     let mut sponge = Keccak::new_keccak256();
     sponge.update(&data);
     sponge.finalize(result);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse_recipient() {
+        assert_eq!(
+            parse_recipient("test.near").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: None,
+            }
+        );
+
+        assert_eq!(
+            parse_recipient("test.near:unwrap").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: Some("unwrap".to_owned()),
+            }
+        );
+
+        assert_eq!(
+            parse_recipient("test.near:some_msg:with_extra_colon").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: Some("some_msg:with_extra_colon".to_owned()),
+            }
+        );
+
+        assert_eq!(
+            parse_recipient("test.near:").unwrap(),
+            Recipient {
+                target: "test.near".parse().unwrap(),
+                message: Some("".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_invalid_recipient() {
+        assert!(parse_recipient("test@.near").is_none());
+        assert!(parse_recipient("test@.near:msg").is_none());
+    }
 }

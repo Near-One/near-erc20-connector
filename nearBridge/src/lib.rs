@@ -7,21 +7,30 @@ use near_plugins::{
 */
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedSet;
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise, PublicKey,
+    env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise,
+    PromiseOrValue, PublicKey, ONE_YOCTO,
 };
 use prover::ext_prover;
 pub use prover::{get_eth_address, is_valid_eth_address, EthAddress, Proof};
 pub use transfer_to_near_event::TransferToNearInitiatedEvent;
 
+use crate::prover::{parse_recipient, Recipient};
+
 pub mod prover;
 mod transfer_to_near_event;
 
 /// Gas to call finalise method.
-const FINISH_FINALISE_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
+const FINISH_FINALISE_GAS: Gas = Gas(Gas::ONE_TERA.0 * 100);
 /// Gas to call verify_log_entry on prover.
 const VERIFY_LOG_ENTRY_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
+const WNEAR_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 10);
+const WNEAR_STORAGE_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 5);
+const FT_TRANSFER_CALL_GAS: Gas = Gas(Gas::ONE_TERA.0 * 80);
+
+const WNEAR_STORAGE_KEY: &[u8] = b"wnear";
 
 pub type Mask = u128;
 
@@ -73,7 +82,12 @@ pub struct NearBridge {
 #[near_bindgen]
 impl NearBridge {
     #[init]
-    pub fn new(prover_account: AccountId, e_near_address: String) -> Self {
+    #[payable]
+    pub fn new(
+        prover_account: AccountId,
+        e_near_address: String,
+        wnear_account: AccountId,
+    ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         #[allow(deprecated)]
         let mut contract = Self {
@@ -83,7 +97,9 @@ impl NearBridge {
             paused: Mask::default(),
         };
 
-        contract.acl_init_super_admin(near_sdk::env::predecessor_account_id());
+        contract.acl_init_super_admin(env::predecessor_account_id());
+        contract.acl_grant_role(Role::DAO.into(), env::predecessor_account_id());
+        contract.set_wnear_account_id(wnear_account);
         contract
     }
 
@@ -121,7 +137,7 @@ impl NearBridge {
 
     #[payable]
     #[pause(except(roles(Role::DAO, Role::UnrestrictedFinaliseEthToNearTransfer)))]
-    pub fn finalise_eth_to_near_transfer(&mut self, #[serializer(borsh)] proof: Proof) {
+    pub fn finalise_eth_to_near_transfer(&mut self, #[serializer(borsh)] proof: Proof) -> Promise {
         let event = TransferToNearInitiatedEvent::from_log_entry_data(&proof.log_entry_data);
         assert_eq!(
             event.e_near_address,
@@ -148,12 +164,8 @@ impl NearBridge {
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(FINISH_FINALISE_GAS)
                     .with_attached_deposit(env::attached_deposit())
-                    .finish_eth_to_near_transfer(
-                        event.recipient.parse().unwrap(),
-                        event.amount,
-                        proof_1,
-                    ),
-            );
+                    .finish_eth_to_near_transfer(event.recipient, event.amount, proof_1),
+            )
     }
 
     /// Finish depositing once the proof was successfully validated. Can only be called by the contract
@@ -164,10 +176,10 @@ impl NearBridge {
         #[callback]
         #[serializer(borsh)]
         verification_success: bool,
-        #[serializer(borsh)] new_owner_id: AccountId,
+        #[serializer(borsh)] new_owner_id: String,
         #[serializer(borsh)] amount: Balance,
         #[serializer(borsh)] proof: Proof,
-    ) {
+    ) -> Promise {
         near_sdk::assert_self();
         assert!(verification_success, "Failed to verify the proof");
 
@@ -176,7 +188,27 @@ impl NearBridge {
             env::panic_str("Attached deposit is not sufficient to record proof");
         }
 
-        Promise::new(new_owner_id).transfer(amount);
+        let Recipient { target, message } = parse_recipient(&new_owner_id)
+            .unwrap_or_else(|| env::panic_str("Failed to parse recipient"));
+
+        match message {
+            Some(message) => {
+                let wnear_account_id = self
+                    .get_wnear_account_id()
+                    .unwrap_or_else(|| env::panic_str("WNear address hasn't been set"));
+                ext_wnear_token::ext(wnear_account_id.clone())
+                    .with_static_gas(WNEAR_DEPOSIT_GAS)
+                    .with_attached_deposit(amount)
+                    .near_deposit()
+                    .then(
+                        ext_wnear_token::ext(wnear_account_id)
+                            .with_static_gas(FT_TRANSFER_CALL_GAS)
+                            .with_attached_deposit(ONE_YOCTO)
+                            .ft_transfer_call(target, amount.into(), None, message),
+                    )
+            }
+            None => Promise::new(target).transfer(amount),
+        }
     }
 
     /// Checks whether the provided proof is already used
@@ -204,6 +236,21 @@ impl NearBridge {
         required_deposit
     }
 
+    #[payable]
+    #[access_control_any(roles(Role::DAO))]
+    pub fn set_wnear_account_id(&mut self, wnear: AccountId) -> Promise {
+        env::storage_write(WNEAR_STORAGE_KEY, &wnear.try_to_vec().unwrap());
+
+        ext_wnear_token::ext(wnear)
+            .with_static_gas(WNEAR_STORAGE_DEPOSIT_GAS)
+            .with_attached_deposit(env::attached_deposit())
+            .storage_deposit(env::current_account_id())
+    }
+
+    pub fn get_wnear_account_id(&self) -> Option<AccountId> {
+        AccountId::try_from_slice(&env::storage_read(WNEAR_STORAGE_KEY)?).ok()
+    }
+
     #[access_control_any(roles(Role::DAO))]
     pub fn attach_full_access_key(&self, public_key: PublicKey) -> Promise {
         Promise::new(env::current_account_id()).add_full_access_key(public_key)
@@ -222,15 +269,30 @@ pub trait ExtNearBridge {
         #[callback]
         #[serializer(borsh)]
         verification_success: bool,
-        #[serializer(borsh)] new_owner_id: AccountId,
+        #[serializer(borsh)] new_owner_id: String,
         #[serializer(borsh)] amount: Balance,
         #[serializer(borsh)] proof: Proof,
     ) -> Promise;
 }
 
+#[ext_contract(ext_wnear_token)]
+pub trait ExtWNearToken {
+    fn ft_transfer_call(
+        &self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
+
+    fn near_deposit(&self);
+    fn storage_deposit(&self, account_id: AccountId);
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use near_sdk::test_utils::test_env::bob;
     use near_sdk::test_utils::VMContextBuilder;
     use near_sdk::testing_env;
 
@@ -265,6 +327,9 @@ mod tests {
     }
     fn prover_near_account() -> AccountId {
         "prover".parse().unwrap()
+    }
+    fn wnear_near_account() -> AccountId {
+        "wrap.near".parse().unwrap()
     }
     fn e_near_eth_address() -> String {
         "68a3637ba6e75c0f66b61a42639c4e9fcd3d4824".to_string()
@@ -314,7 +379,11 @@ mod tests {
     fn can_migrate_near_to_eth_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -331,7 +400,11 @@ mod tests {
     fn migrate_near_to_eth_panics_when_attached_deposit_is_zero() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.migrate_to_ethereum(alice_eth_address());
     }
@@ -341,14 +414,18 @@ mod tests {
     fn migrate_near_to_eth_panics_when_contract_is_paused() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.pa_pause_feature("migrate_to_ethereum".to_owned());
 
         // lets deposit 1 Near
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
         set_env!(
-            predecessor_account_id: alice_near_account(),
+            predecessor_account_id: bob(),
             attached_deposit: deposit_amount,
         );
 
@@ -360,7 +437,11 @@ mod tests {
     fn migrate_near_to_eth_panics_when_eth_address_is_invalid() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.migrate_to_ethereum(invalid_eth_address());
     }
@@ -370,7 +451,11 @@ mod tests {
     fn finalise_eth_to_near_transfer_panics_when_contract_is_paused() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.pa_pause_feature("finalise_eth_to_near_transfer".to_owned());
 
@@ -382,26 +467,43 @@ mod tests {
     fn finalise_eth_to_near_transfer_panics_when_event_originates_from_wrong_contract() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         contract.finalise_eth_to_near_transfer(create_proof(alice_eth_address()));
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Attached deposit is not sufficient to record proof")]
     fn finish_eth_to_near_transfer_panics_if_attached_deposit_is_not_sufficient_to_record_proof() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
-        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
+        contract.finish_eth_to_near_transfer(
+            true,
+            bob().to_string(),
+            10,
+            create_proof(e_near_eth_address()),
+        );
     }
 
     #[test]
     fn finalise_eth_to_near_transfer_works_with_valid_params() {
         set_env!(predecessor_account_id: alice_near_account());
 
-        let mut contract = NearBridge::new(prover_near_account(), e_near_eth_address());
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            wnear_near_account(),
+        );
 
         // Alice deposit 1 Near to migrate to eth
         let deposit_amount = 1_000_000_000_000_000_000_000_000u128;
@@ -415,8 +517,29 @@ mod tests {
         // todo adjust attached deposit down
 
         // Lets suppose Alice migrates back
-        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()))
+        contract.finalise_eth_to_near_transfer(create_proof(e_near_eth_address()));
 
         // todo asserts i.e. that alice has received the 1 near back etc.
+    }
+
+    #[test]
+    fn test_set_wnear_account_id() {
+        set_env!(
+            predecessor_account_id: alice_near_account(),
+            signer_account_id: alice_near_account()
+        );
+
+        let mut contract = NearBridge::new(
+            prover_near_account(),
+            e_near_eth_address(),
+            "old_wnear_near.near".parse().unwrap(),
+        );
+
+        contract.set_wnear_account_id(wnear_near_account());
+
+        assert_eq!(
+            contract.get_wnear_account_id().unwrap(),
+            wnear_near_account()
+        );
     }
 }
