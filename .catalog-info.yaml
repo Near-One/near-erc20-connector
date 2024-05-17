@@ -6,5 +6,4 @@ metadata:
   description: Public near-erc20-connector repository
 spec:
   targets:
-    - ./eNear/.catalog-info.yaml
-    - ./nearBridge/.catalog-info.yaml
+    - ./**/.catalog-info.yaml
