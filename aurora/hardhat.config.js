@@ -48,7 +48,7 @@ module.exports = {
 task("deploy", "Deploy bridge contract")
   .addParam("environment", "Config file name without extension")
   .setAction(async (taskArgs, hre) => {
-    const { deploy } = require("./scripts/deploy.js");
+    const { deploy } = require("./scripts/utils.js");
     const [signer] = await hre.ethers.getSigners();
     const config = require(`./scripts/aurora_${taskArgs.environment}.params.json`);
 
@@ -56,6 +56,45 @@ task("deploy", "Deploy bridge contract")
     await deploy({
       wNearAddress: config.wNearAddress,
       eNearAccountId: config.eNearAccountId,
+      auroraSdkAddress: config.auroraSdkAddress,
+      auroraUtilsAddress: config.utilsAddress,
+    });
+  });
+
+
+task("upgrade", "Upgrade bridge contract")
+  .addParam("environment", "Config file name without extension")
+  .setAction(async (taskArgs, hre) => {
+    const { upgrade } = require("./scripts/utils.js");
+    const [signer] = await hre.ethers.getSigners();
+    const config = require(`./scripts/aurora_${taskArgs.environment}.params.json`);
+
+    await hre.run("compile");
+    await upgrade({
+      signer,
+      proxyAddress: config.proxyAddress,
+      auroraSdkAddress: config.auroraSdkAddress,
+      auroraUtilsAddress: config.utilsAddress,
+    });
+  });
+
+
+task("withdraw", "Withdraw from implicit near account")
+  .addParam("recipient", "Recipient address")
+  .addParam("amount", "Amount to withdraw")
+  .addParam("environment", "Config file name without extension")
+  .setAction(async (taskArgs, hre) => {
+    const { withdraw } = require("./scripts/utils.js");
+    const [signer] = await hre.ethers.getSigners();
+    const config = require(`./scripts/aurora_${taskArgs.environment}.params.json`);
+
+    await hre.run("compile");
+    await withdraw({
+      recipientAddress: taskArgs.recipient,
+      amount: taskArgs.amount,
+      signer,
+      wNearAccountId: config.wNearAccountId,
+      proxyAddress: config.proxyAddress,
       auroraSdkAddress: config.auroraSdkAddress,
       auroraUtilsAddress: config.utilsAddress,
     });
