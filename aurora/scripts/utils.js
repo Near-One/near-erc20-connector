@@ -29,6 +29,33 @@ async function deploy({
     );
   }
 
+async function deployImplementation({
+    wNearAddress,
+    eNearAccountId,
+    auroraSdkAddress,
+    auroraUtilsAddress,
+  }) {
+    let NearBridgeContract =  await ethers.getContractFactory("NearBridge", {
+      libraries: {
+        AuroraSdk: auroraSdkAddress,
+        Utils: auroraUtilsAddress,
+      },
+    });
+  
+    let impl = await upgrades.deployImplementation(
+      NearBridgeContract,
+      {
+        unsafeAllowLinkedLibraries: true,
+      },
+      [wNearAddress, eNearAccountId],
+    );
+  
+    console.log(
+      "Bridge impl deployed to: ",
+      impl,
+    );
+  }
+
 async function upgrade({
   signer,
   proxyAddress,
@@ -42,9 +69,8 @@ async function upgrade({
         Utils: auroraUtilsAddress,
       },
     })
-  ).attach(proxyAddress).connect(signer);
+  ).connect(signer);
 
-  console.log(`Owner: ${await NearBridgeContract.owner()}`);
   console.log(
     "Current implementation address:",
     await upgrades.erc1967.getImplementationAddress(proxyAddress)
@@ -88,11 +114,10 @@ async function withdraw({
     recipientAddress,
     amount
   );
-  console.log(tx);
-  let receipt = await tx.wait();
-  console.log(receipt);
+  console.log(tx.hash);
 }
 
 exports.deploy = deploy;
+exports.deployImplementation = deployImplementation;
 exports.upgrade = upgrade;
 exports.withdraw = withdraw;

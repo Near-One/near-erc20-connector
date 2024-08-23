@@ -61,6 +61,20 @@ task("deploy", "Deploy bridge contract")
     });
   });
 
+task("deployImpl", "Deploy implementation bridge contract")
+  .addParam("environment", "Config file name without extension")
+  .setAction(async (taskArgs, hre) => {
+    const { deployImplementation } = require("./scripts/utils.js");
+    const config = require(`./scripts/aurora_${taskArgs.environment}.params.json`);
+
+    await hre.run("compile");
+    await deployImplementation({
+      wNearAddress: config.wNearAddress,
+      eNearAccountId: config.eNearAccountId,
+      auroraSdkAddress: config.auroraSdkAddress,
+      auroraUtilsAddress: config.utilsAddress,
+    });
+  });
 
 task("upgrade", "Upgrade bridge contract")
   .addParam("environment", "Config file name without extension")
