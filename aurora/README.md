@@ -27,3 +27,15 @@ Verify
 yarn verify:testnet {contract_id}
 yarn verify:mainnet {contract_id}
 ```
+
+Upgrade
+```
+yarn upgrade:testnet
+yarn upgrade:mainnet
+```
+
+Admin withdraw
+```
+yarn hardhat withdraw --environment testnet --network testnet_aurora --recipient <recipient> --amount <amount>
+yarn hardhat withdraw --environment mainnet --network testnet_aurora --recipient <recipient> --amount <amount>
+```

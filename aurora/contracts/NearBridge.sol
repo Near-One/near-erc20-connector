@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract NearBridge is UUPSUpgradeable, PausableUpgradeable, OwnableUpgradeable {
     using AuroraSdk for NEAR;
@@ -15,6 +16,8 @@ contract NearBridge is UUPSUpgradeable, PausableUpgradeable, OwnableUpgradeable 
     string private eNearAccountId;
 
     uint64 constant MIGRATE_TO_ETHEREUM_GAS = 10_000_000_000_000;
+    uint64 constant WITHDRAW_NEAR_GAS = 50_000_000_000_000;
+    uint128 constant ONE_YOCTO = 1;
 
     event InitBridgeToEthereum(address indexed sender, address indexed recipient, uint128 amount);
     
@@ -58,6 +61,41 @@ contract NearBridge is UUPSUpgradeable, PausableUpgradeable, OwnableUpgradeable 
         emit InitBridgeToEthereum(msg.sender, recipient, amount);
     }
 
+    function withdrawFromImplicitNearAccount(
+        string calldata receiver,
+        string calldata token,
+        address recipient,
+        uint128 amount
+    ) external onlyOwner {
+        require(
+            near.wNEAR.balanceOf(address(this)) >= ONE_YOCTO,
+            "Not enough wNEAR balance"
+        );
+
+        bytes memory args = bytes(
+            string.concat(
+                '{"receiver_id": "',
+                receiver,
+                '", "amount": "',
+                Strings.toString(amount),
+                '", "msg": "',
+                Utils.bytesToHex(abi.encodePacked(recipient)),
+                '"}'
+            )
+        );
+
+        PromiseCreateArgs memory callWithdraw = _callWithoutTransferWNear(
+            near,
+            token,
+            "ft_transfer_call",
+            args,
+            ONE_YOCTO,
+            WITHDRAW_NEAR_GAS
+        );
+
+        callWithdraw.transact();
+    }
+
     function pause() external onlyOwner {
         _pause();
     }
@@ -67,4 +105,24 @@ contract NearBridge is UUPSUpgradeable, PausableUpgradeable, OwnableUpgradeable 
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+
+    function _callWithoutTransferWNear(
+        NEAR storage _near,
+        string memory targetAccountId,
+        string memory method,
+        bytes memory args,
+        uint128 nearBalance,
+        uint64 nearGas
+    ) internal view returns (PromiseCreateArgs memory) {
+        require(_near.initialized, "Near isn't initialized");
+        return
+            PromiseCreateArgs(
+                targetAccountId,
+                method,
+                args,
+                nearBalance,
+                nearGas
+            );
+    }
 }

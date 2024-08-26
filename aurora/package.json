@@ -7,6 +7,8 @@
     "build": "hardhat compile",
     "deploy:testnet": "hardhat deploy --environment testnet --network testnet_aurora",
     "deploy:mainnet": "hardhat deploy --environment mainnet --network mainnet_aurora",
+    "upgrade:testnet": "hardhat upgrade --environment testnet --network testnet_aurora",
+    "upgrade:mainnet": "hardhat upgrade --environment mainnet --network mainnet_aurora",
     "verify:testnet": "hardhat verify --network testnet_aurora",
     "verify:mainnet": "hardhat verify --network mainnet_aurora"
   },
