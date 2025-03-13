@@ -213,7 +213,11 @@ impl NearBridge {
     }
 
     pub fn get_avialable_balance(&self) -> U128 {
-        U128(env::account_balance() - env::storage_byte_cost() * env::storage_usage() as u128)
+        U128(
+            env::account_balance()
+                - env::attached_deposit()
+                - env::storage_byte_cost() * env::storage_usage() as u128,
+        )
     }
 
     #[access_control_any(roles(Role::DAO))]
