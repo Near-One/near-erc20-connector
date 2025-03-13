@@ -217,6 +217,7 @@ impl NearBridge {
     }
 
     #[access_control_any(roles(Role::DAO))]
+    #[payable]
     pub fn send_to_omni_bridge(&mut self, omni_bridge: AccountId) -> Promise {
         let amount = self.get_avialable_balance().0;
         let wnear_account_id = self
