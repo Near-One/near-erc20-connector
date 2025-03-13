@@ -212,8 +212,13 @@ impl NearBridge {
         }
     }
 
+    pub fn get_avialable_balance(&self) -> U128 {
+        U128(env::account_balance() - env::storage_byte_cost() * env::storage_usage() as u128)
+    }
+
     #[access_control_any(roles(Role::DAO))]
-    pub fn send_to_omni_bridge(&mut self, omni_bridge: AccountId, amount: Balance) -> Promise {
+    pub fn send_to_omni_bridge(&mut self, omni_bridge: AccountId) -> Promise {
+        let amount = self.get_avialable_balance().0;
         let wnear_account_id = self
             .get_wnear_account_id()
             .unwrap_or_else(|| env::panic_str("WNear address hasn't been set"));
