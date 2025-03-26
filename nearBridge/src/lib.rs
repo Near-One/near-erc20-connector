@@ -29,6 +29,7 @@ const VERIFY_LOG_ENTRY_GAS: Gas = Gas(Gas::ONE_TERA.0 * 50);
 const WNEAR_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 10);
 const WNEAR_STORAGE_DEPOSIT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 5);
 const FT_TRANSFER_CALL_GAS: Gas = Gas(Gas::ONE_TERA.0 * 80);
+const FT_TRANSFER_GAS: Gas = Gas(Gas::ONE_TERA.0 * 5);
 
 const WNEAR_STORAGE_KEY: &[u8] = b"wnear";
 
@@ -211,6 +212,34 @@ impl NearBridge {
         }
     }
 
+    pub fn get_avialable_balance(&self) -> U128 {
+        U128(
+            env::account_balance()
+                - env::attached_deposit()
+                - env::storage_byte_cost() * env::storage_usage() as u128,
+        )
+    }
+
+    #[access_control_any(roles(Role::DAO))]
+    #[payable]
+    pub fn send_to_omni_bridge(&mut self, omni_bridge: AccountId) -> Promise {
+        let amount = self.get_avialable_balance().0;
+        let wnear_account_id = self
+            .get_wnear_account_id()
+            .unwrap_or_else(|| env::panic_str("WNear address hasn't been set"));
+
+        ext_wnear_token::ext(wnear_account_id.clone())
+            .with_static_gas(WNEAR_DEPOSIT_GAS)
+            .with_attached_deposit(amount)
+            .near_deposit()
+            .then(
+                ext_wnear_token::ext(wnear_account_id)
+                    .with_static_gas(FT_TRANSFER_GAS)
+                    .with_attached_deposit(ONE_YOCTO)
+                    .ft_transfer(omni_bridge, amount.into(), None),
+            )
+    }
+
     /// Checks whether the provided proof is already used
     pub fn is_used_proof(&self, #[serializer(borsh)] proof: Proof) -> bool {
         self.used_events.contains(&proof.get_key())
@@ -283,6 +312,13 @@ pub trait ExtWNearToken {
         amount: U128,
         memo: Option<String>,
         msg: String,
+    ) -> PromiseOrValue<U128>;
+
+    fn ft_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
     ) -> PromiseOrValue<U128>;
 
     fn near_deposit(&self);
